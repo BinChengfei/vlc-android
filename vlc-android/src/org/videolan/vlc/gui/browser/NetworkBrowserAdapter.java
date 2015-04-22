@@ -1,6 +1,6 @@
 /*
  * *************************************************************************
- *  MediaLibBrowserFragment.java
+ *  NetworkBrowserAdapter.java
  * **************************************************************************
  *  Copyright © 2015 VLC authors and VideoLAN
  *  Author: Geoffrey Métais
@@ -21,38 +21,14 @@
  *  ***************************************************************************
  */
 
-package org.videolan.vlc.gui.tv.browser;
+package org.videolan.vlc.gui.browser;
 
-import android.os.Bundle;
+import org.videolan.vlc.R;
 
-import org.videolan.vlc.MediaLibrary;
-import org.videolan.vlc.MediaWrapper;
-import org.videolan.vlc.util.Util;
+public class NetworkBrowserAdapter extends BaseBrowserAdapter{
 
-import java.util.HashMap;
-import java.util.concurrent.CyclicBarrier;
-
-public class MediaLibBrowserFragment extends GridFragment {
-    protected final CyclicBarrier mBarrier = new CyclicBarrier(2);
-    protected MediaWrapper mItemToUpdate;
-    protected MediaLibrary mMediaLibrary;
-    HashMap<String, Integer> mMediaIndex;
-
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        mMediaLibrary = MediaLibrary.getInstance();
-    }
-
-    public void onResume() {
-        super.onResume();
-        if (mMediaLibrary.isWorking()) {
-            Util.actionScanStart();
-        }
-    }
-
-    public void onPause() {
-        super.onPause();
-        mBarrier.reset();
+    public NetworkBrowserAdapter(BaseBrowserFragment fragment){
+        super(fragment);
+        FOLDER_RES_ID = R.drawable.ic_menu_network;
     }
 }

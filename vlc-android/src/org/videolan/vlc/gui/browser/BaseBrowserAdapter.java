@@ -1,8 +1,9 @@
 /**
  * **************************************************************************
- * NetworkAdapter.java
+ * BaseBrowserAdapter.java
  * ****************************************************************************
  * Copyright © 2015 VLC authors and VideoLAN
+ * Author: Geoffrey Métais
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,10 +20,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA 02110-1301, USA.
  * ***************************************************************************
  */
-package org.videolan.vlc.gui.network;
+package org.videolan.vlc.gui.browser;
 
-import android.net.Uri;
 import android.support.v7.widget.RecyclerView;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -38,16 +39,18 @@ import org.videolan.vlc.util.Util;
 import java.util.ArrayList;
 import java.util.Collections;
 
-public class NetworkAdapter extends  RecyclerView.Adapter<RecyclerView.ViewHolder> {
-    private static final String TAG = "VLC/NetworkAdapter";
+public class BaseBrowserAdapter extends  RecyclerView.Adapter<RecyclerView.ViewHolder> {
+    private static final String TAG = "VLC/BaseBrowserAdapter";
 
     private static final int TYPE_MEDIA = 0;
     private static final int TYPE_SEPARATOR = 1;
 
-    ArrayList<Object> mMediaList = new ArrayList<Object>();
-    NetworkFragment fragment;
+    protected int FOLDER_RES_ID = R.drawable.ic_menu_folder;
 
-    public NetworkAdapter(NetworkFragment fragment){
+    ArrayList<Object> mMediaList = new ArrayList<Object>();
+    BaseBrowserFragment fragment;
+
+    public BaseBrowserAdapter(BaseBrowserFragment fragment){
         this.fragment = fragment;
     }
 
@@ -70,22 +73,44 @@ public class NetworkAdapter extends  RecyclerView.Adapter<RecyclerView.ViewHolde
     @Override
     public void onBindViewHolder(final RecyclerView.ViewHolder holder, int position) {
         if (holder instanceof MediaViewHolder) {
-            MediaViewHolder vh = (MediaViewHolder) holder;
-            MediaWrapper media = (MediaWrapper) getItem(position);
+            final MediaViewHolder vh = (MediaViewHolder) holder;
+            final MediaWrapper media = (MediaWrapper) getItem(position);
+            boolean hasContextMenu = (media.getType() == MediaWrapper.TYPE_AUDIO ||
+                  media.getType() == MediaWrapper.TYPE_VIDEO ||
+                  (media.getType() == MediaWrapper.TYPE_DIR && Util.canWrite(media.getLocation())));
             vh.title.setText(media.getTitle());
-            vh.text.setVisibility(View.GONE);
+            if (media.getDescription() != null && !TextUtils.isEmpty(media.getDescription())) {
+                vh.text.setVisibility(View.VISIBLE);
+                vh.text.setText(media.getDescription());
+            } else
+                vh.text.setVisibility(View.INVISIBLE);
             vh.icon.setImageResource(getIconResId(media));
-            vh.more.setVisibility(View.GONE);
+            vh.more.setVisibility(hasContextMenu ? View.VISIBLE : View.GONE);
             vh.itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     MediaWrapper mw = (MediaWrapper) getItem(holder.getPosition());
                     if (mw.getType() == MediaWrapper.TYPE_DIR)
-                        fragment.browse(mw);
+                        fragment.browse(mw, holder.getPosition());
                     else
                         Util.openMedia(v.getContext(), mw);
                 }
             });
+            if (hasContextMenu) {
+                vh.more.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        fragment.onPopupMenu(vh.more, holder.getPosition());
+                    }
+                });
+                vh.itemView.setOnLongClickListener(new View.OnLongClickListener() {
+                    @Override
+                    public boolean onLongClick(View v) {
+                        fragment.mRecyclerView.openContextMenu(holder.getPosition());
+                        return true;
+                    }
+                });
+            }
         } else {
             SeparatorViewHolder vh = (SeparatorViewHolder) holder;
             vh.title.setText(getItem(position).toString());
@@ -97,7 +122,7 @@ public class NetworkAdapter extends  RecyclerView.Adapter<RecyclerView.ViewHolde
         return mMediaList.size();
     }
 
-    public static class MediaViewHolder extends RecyclerView.ViewHolder {
+    public class MediaViewHolder extends RecyclerView.ViewHolder {
         public TextView title;
         public TextView text;
         public ImageView icon;
@@ -130,27 +155,35 @@ public class NetworkAdapter extends  RecyclerView.Adapter<RecyclerView.ViewHolde
         return mMediaList.isEmpty();
     }
 
-    public void addItem(Media media, boolean root, boolean first){
+    public void addItem(Media media, boolean notify, boolean top){
         MediaWrapper mediaWrapper = new MediaWrapper(media);
-        addItem(mediaWrapper, root, first);
+        addItem(mediaWrapper, notify, top);
 
     }
 
-    public void addItem(Object item, boolean root, boolean first){
-        int position = first ? 0 : mMediaList.size();
+    public void addItem(Object item, boolean notify, boolean top){
+        int position = top ? 0 : mMediaList.size();
         if (item instanceof MediaWrapper && ((MediaWrapper)item).getTitle().startsWith("."))
             return;
         else if (item instanceof Media)
             item = new MediaWrapper((Media) item);
 
         mMediaList.add(position, item);
-        if (root)
+        if (notify)
             notifyItemInserted(position);
     }
 
-    public void removeItem(int position){
+    public void addAll(ArrayList<MediaWrapper> mediaList){
+        mMediaList.clear();
+        for (MediaWrapper mw : mediaList)
+            mMediaList.add(mw);
+    }
+
+    public void removeItem(int position, boolean notify){
         mMediaList.remove(position);
-        notifyItemRemoved(position);
+        if (notify) {
+            notifyItemRemoved(position);
+        }
     }
 
     public Object getItem(int position){
@@ -188,7 +221,7 @@ public class NetworkAdapter extends  RecyclerView.Adapter<RecyclerView.ViewHolde
             case MediaWrapper.TYPE_AUDIO:
                 return R.drawable.ic_browser_audio_normal;
             case MediaWrapper.TYPE_DIR:
-                return R.drawable.ic_menu_network;
+                return FOLDER_RES_ID;
             case MediaWrapper.TYPE_VIDEO:
                 return R.drawable.ic_browser_video_normal;
             case MediaWrapper.TYPE_SUBTITLE:

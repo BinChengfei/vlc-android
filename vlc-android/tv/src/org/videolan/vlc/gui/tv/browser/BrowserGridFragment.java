@@ -3,6 +3,7 @@
  *  BrowserGridFragment.java
  * **************************************************************************
  *  Copyright © 2015 VLC authors and VideoLAN
+ *  Author: Geoffrey Métais
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -34,7 +35,7 @@ import org.videolan.libvlc.Media;
 import org.videolan.libvlc.util.MediaBrowser;
 import org.videolan.vlc.MediaWrapper;
 import org.videolan.vlc.gui.audio.MediaComparators;
-import org.videolan.vlc.gui.network.NetworkFragment;
+import org.videolan.vlc.gui.browser.BaseBrowserFragment;
 import org.videolan.vlc.gui.tv.DetailsActivity;
 import org.videolan.vlc.gui.tv.MediaItemDetails;
 import org.videolan.vlc.util.VLCInstance;
@@ -52,9 +53,9 @@ public class BrowserGridFragment extends GridFragment implements MediaBrowser.Ev
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (savedInstanceState != null){
-            mMrl = savedInstanceState.getString(NetworkFragment.KEY_MRL);
+            mMrl = savedInstanceState.getString(BaseBrowserFragment.KEY_MRL);
         } else {
-            mMrl = getActivity().getIntent().getStringExtra(NetworkFragment.KEY_MRL);
+            mMrl = getActivity().getIntent().getStringExtra(BaseBrowserFragment.KEY_MRL);
         }
         setOnItemViewSelectedListener(this);
     }

@@ -1,7 +1,7 @@
 /*****************************************************************************
- * BrowserAdapter.java
+ * MediaBrowserAdapter.java
  *****************************************************************************
- * Copyright © 2011-2012 VLC authors and VideoLAN
+ * Copyright © 2011-2015 VLC authors and VideoLAN
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,13 +41,13 @@ import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.TextView;
 
-public class BrowserAdapter extends ArrayAdapter<File>
+public class MediaBrowserAdapter extends ArrayAdapter<File>
                             implements Comparator<File> {
     public final static String TAG = "VLC/BrowserAdapter";
 
     public final static String ADD_ITEM_PATH = "/add/a/path";
 
-    public BrowserAdapter(Context context) {
+    public MediaBrowserAdapter(Context context) {
         super(context, 0);
     }
 

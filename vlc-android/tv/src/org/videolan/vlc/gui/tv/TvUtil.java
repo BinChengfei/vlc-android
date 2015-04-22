@@ -2,6 +2,7 @@
  * TvUtil.java
  *****************************************************************************
  * Copyright © 2014-2015 VLC authors, VideoLAN and VideoLabs
+ * Author: Geoffrey Métais
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,10 +21,9 @@
 package org.videolan.vlc.gui.tv;
 
 import org.videolan.vlc.MediaWrapper;
-import org.videolan.vlc.gui.network.NetworkFragment;
+import org.videolan.vlc.gui.browser.BaseBrowserFragment;
 import org.videolan.vlc.gui.tv.browser.VerticalGridActivity;
 import org.videolan.vlc.gui.video.VideoPlayerActivity;
-import org.videolan.vlc.interfaces.IVideoBrowser;
 import org.videolan.vlc.util.Strings;
 
 import android.app.Activity;
@@ -48,7 +48,7 @@ public class TvUtil {
             } else if (mediaWrapper.getType() == MediaWrapper.TYPE_DIR){
                 Intent intent = new Intent(activity, VerticalGridActivity.class);
                 intent.putExtra(MainTvActivity.BROWSER_TYPE, MainTvActivity.HEADER_NETWORK);
-                intent.putExtra(NetworkFragment.KEY_MRL, mediaWrapper.getLocation());
+                intent.putExtra(BaseBrowserFragment.KEY_MRL, mediaWrapper.getLocation());
                 activity.startActivity(intent);
             }
         } else if (item instanceof CardPresenter.SimpleCard){

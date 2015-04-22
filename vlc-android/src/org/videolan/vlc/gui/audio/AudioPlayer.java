@@ -30,14 +30,12 @@ import org.videolan.vlc.MediaWrapper;
 import org.videolan.vlc.R;
 import org.videolan.vlc.audio.AudioServiceController;
 import org.videolan.vlc.audio.RepeatType;
-import org.videolan.vlc.gui.CommonDialogs;
 import org.videolan.vlc.gui.MainActivity;
-import org.videolan.vlc.gui.CommonDialogs.MenuType;
 import org.videolan.vlc.gui.PreferencesActivity;
 import org.videolan.vlc.gui.audio.widget.CoverMediaSwitcher;
 import org.videolan.vlc.gui.audio.widget.HeaderMediaSwitcher;
 import org.videolan.vlc.gui.dialogs.SavePlaylist;
-import org.videolan.vlc.gui.video.AdvOptionsDialog;
+import org.videolan.vlc.gui.dialogs.AdvOptionsDialog;
 import org.videolan.vlc.interfaces.IAudioPlayer;
 import org.videolan.vlc.util.Strings;
 import org.videolan.vlc.util.Util;
@@ -286,17 +284,20 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
 
     @Override
     public boolean onContextItemSelected(MenuItem item) {
-        AdapterContextMenuInfo info = (AdapterContextMenuInfo) item.getMenuInfo();
-        if(info == null) // info can be null
-            return super.onContextItemSelected(item);
-        int id = item.getItemId();
+        if (getUserVisibleHint() && item.getMenuInfo() instanceof AdapterContextMenuInfo) {
+            AdapterContextMenuInfo info = (AdapterContextMenuInfo) item.getMenuInfo();
+            if(info == null) // info can be null
+                return super.onContextItemSelected(item);
+            int id = item.getItemId();
 
-        if(id == R.id.audio_player_mini_remove) {
-            Log.d(TAG, "Context menu removing " + info.position);
-            mAudioController.remove(info.position);
-            return true;
-        }
-        return super.onContextItemSelected(item);
+            if(id == R.id.audio_player_mini_remove) {
+                Log.d(TAG, "Context menu removing " + info.position);
+                mAudioController.remove(info.position);
+                return true;
+            }
+            return super.onContextItemSelected(item);
+        } else
+            return false;
     }
 
     /**

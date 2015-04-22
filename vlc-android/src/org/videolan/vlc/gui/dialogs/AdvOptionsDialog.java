@@ -3,6 +3,7 @@
  * AdvOptionsDialog.java
  * ****************************************************************************
  * Copyright © 2015 VLC authors and VideoLAN
+ * Author: Geoffrey Métais
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +20,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA 02110-1301, USA.
  * ***************************************************************************
  */
-package org.videolan.vlc.gui.video;
+package org.videolan.vlc.gui.dialogs;
 
 import android.app.Activity;
 import android.app.AlarmManager;
@@ -50,11 +51,7 @@ import org.videolan.vlc.R;
 import org.videolan.vlc.VLCApplication;
 import org.videolan.vlc.gui.MainActivity;
 import org.videolan.vlc.gui.SecondaryActivity;
-import org.videolan.vlc.gui.dialogs.AudioDelayDialog;
-import org.videolan.vlc.gui.dialogs.JumpToTimeDialog;
-import org.videolan.vlc.gui.dialogs.PickTimeFragment;
-import org.videolan.vlc.gui.dialogs.SubsDelayDialog;
-import org.videolan.vlc.gui.dialogs.TimePickerDialogFragment;
+import org.videolan.vlc.gui.video.VideoPlayerActivity;
 import org.videolan.vlc.interfaces.IDelayController;
 import org.videolan.vlc.util.AndroidDevices;
 import org.videolan.vlc.util.Strings;

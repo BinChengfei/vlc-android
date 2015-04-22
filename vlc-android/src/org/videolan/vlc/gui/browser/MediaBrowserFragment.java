@@ -1,6 +1,6 @@
 /*
  * *************************************************************************
- *  BrowserFragment.java
+ *  MediaBrowserFragment.java
  * **************************************************************************
  *  Copyright © 2015 VLC authors and VideoLAN
  *
@@ -20,20 +20,26 @@
  *  ***************************************************************************
  */
 
-package org.videolan.vlc.gui;
+package org.videolan.vlc.gui.browser;
 
 import android.support.v4.app.Fragment;
 import android.support.v7.app.ActionBarActivity;
 
 import org.videolan.vlc.widget.SwipeRefreshLayout;
 
-public abstract class BrowserFragment extends Fragment {
+public abstract class MediaBrowserFragment extends Fragment {
 
     protected SwipeRefreshLayout mSwipeRefreshLayout;
     protected volatile boolean mReadyToDisplay = true;
 
-    protected void setReadyToDisplay(boolean ready){}
-    protected void display(){}
+    public void setReadyToDisplay(boolean ready) {
+        if (ready && !mReadyToDisplay)
+            display();
+        else
+            mReadyToDisplay = ready;
+    }
+
+    protected abstract void display();
 
     protected abstract String getTitle();
     public abstract void clear();
