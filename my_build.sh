@@ -7,7 +7,9 @@ export PATH=$PATH:$ANDROID_SDK/platform-tools:$ANDROID_SDK/tools
 [ $# -eq 1 -a "$1" = "clean" ] && {
 	echo "clean..."
 	rm vlc/build-android-arm-linux-androideabi/ -rf
-	rm vlc/contrib/*anrdroid* -rf
+	rm vlc/contrib/*android* -rf
+	rm vlc-android/build -rf
+	rm libvlc/build -rf
 
 	exit 0
 }
