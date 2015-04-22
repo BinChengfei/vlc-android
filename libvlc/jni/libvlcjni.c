@@ -184,7 +184,22 @@ static void vlc_event_callback(const libvlc_event_t *ev, void *data)
         jstring sData = (*env)->NewStringUTF(env, "data");
         (*env)->CallVoidMethod(env, bundle, putInt, sData, ev->u.media_player_es_changed.i_type);
         (*env)->DeleteLocalRef(env, sData);
+    } 
+    //add by aFei
+    else if(ev->type == libvlc_MediaPlayerBuffering) { 
+        jstring sData = (*env)->NewStringUTF(env, "data");
+        (*env)->CallVoidMethod(env, bundle, putFloat, sData, ev->u.media_player_buffering.new_cache);
+        (*env)->DeleteLocalRef(env, sData);
+    } else if(ev->type == libvlc_MediaPlayerLengthChanged) {
+            jstring sData = (*env)->NewStringUTF(env, "data");
+        (*env)->CallVoidMethod(env, bundle, putLong, sData, ev->u.media_player_length_changed.new_length);
+        (*env)->DeleteLocalRef(env, sData);
+    }else if(ev->type == libvlc_MediaDurationChanged) {
+                 jstring sData = (*env)->NewStringUTF(env, "data");
+             (*env)->CallVoidMethod(env, bundle, putLong, sData, ev->u.media_duration_changed.new_duration);
+             (*env)->DeleteLocalRef(env, sData);
     }
+    //by aFei
 
     /* Get the object class */
     jclass cls = (*env)->GetObjectClass(env, eventHandlerInstance);
@@ -601,6 +616,11 @@ void Java_org_videolan_libvlc_LibVLC_playMRL(JNIEnv *env, jobject thiz,
         libvlc_MediaPlayerEncounteredError,
         libvlc_MediaPlayerESAdded,
         libvlc_MediaPlayerESDeleted,
+        //add by aFei
+        libvlc_MediaPlayerOpening,
+        libvlc_MediaPlayerBuffering,
+        libvlc_MediaPlayerLengthChanged,
+        //by aFei
     };
     for(int i = 0; i < (sizeof(mp_events) / sizeof(*mp_events)); i++)
         libvlc_event_attach(ev, mp_events[i], vlc_event_callback, myVm);
@@ -626,6 +646,9 @@ void Java_org_videolan_libvlc_LibVLC_playMRL(JNIEnv *env, jobject thiz,
     static const libvlc_event_type_t mp_media_events[] = {
         libvlc_MediaParsedChanged,
         libvlc_MediaMetaChanged,
+        //add by aFei
+        libvlc_MediaDurationChanged
+        //by aFei
     };
     for(int i = 0; i < (sizeof(mp_media_events) / sizeof(*mp_media_events)); i++)
         libvlc_event_attach(ev_media, mp_media_events[i], vlc_event_callback, myVm);

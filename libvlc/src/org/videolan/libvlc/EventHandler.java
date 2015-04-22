@@ -34,15 +34,17 @@ public class EventHandler {
 
     public static final int MediaMetaChanged                  = 0;
     //public static final int MediaSubItemAdded               = 1;
-    //public static final int MediaDurationChanged            = 2;
+    public static final int MediaDurationChanged            = 2;
     public static final int MediaParsedChanged                = 3;
     //public static final int MediaFreed                      = 4;
     //public static final int MediaStateChanged               = 5;
 
     //public static final int MediaPlayerMediaChanged         = 0x100;
     //public static final int MediaPlayerNothingSpecial       = 0x101;
-    //public static final int MediaPlayerOpening              = 0x102;
-    //public static final int MediaPlayerBuffering            = 0x103;
+    //modify by aFei
+    public static final int MediaPlayerOpening              = 0x102;
+    public static final int MediaPlayerBuffering            = 0x103;
+    //by aFei
     public static final int MediaPlayerPlaying                = 0x104;
     public static final int MediaPlayerPaused                 = 0x105;
     public static final int MediaPlayerStopped                = 0x106;
@@ -56,7 +58,7 @@ public class EventHandler {
     //public static final int MediaPlayerPausableChanged      = 0x10e;
     //public static final int MediaPlayerTitleChanged         = 0x10f;
     //public static final int MediaPlayerSnapshotTaken        = 0x110;
-    //public static final int MediaPlayerLengthChanged        = 0x111;
+    public static final int MediaPlayerLengthChanged        = 0x111;
     public static final int MediaPlayerVout                   = 0x112;
     //public static final int MediaPlayerScrambledChanged     = 0x113;
     public static final int MediaPlayerESAdded                = 0x114;
