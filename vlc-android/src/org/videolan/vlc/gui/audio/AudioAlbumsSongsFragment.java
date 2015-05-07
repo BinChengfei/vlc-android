@@ -22,12 +22,12 @@ package org.videolan.vlc.gui.audio;
 
 import android.annotation.TargetApi;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.view.ViewPager;
+import android.support.v7.app.AlertDialog;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.LayoutInflater;
@@ -54,9 +54,8 @@ import org.videolan.vlc.MediaLibrary;
 import org.videolan.vlc.MediaWrapper;
 import org.videolan.vlc.R;
 import org.videolan.vlc.audio.AudioServiceController;
-import org.videolan.vlc.gui.SecondaryActivity;
-import org.videolan.vlc.gui.browser.MediaBrowserFragment;
 import org.videolan.vlc.gui.CommonDialogs;
+import org.videolan.vlc.gui.SecondaryActivity;
 import org.videolan.vlc.util.AndroidDevices;
 import org.videolan.vlc.util.Util;
 import org.videolan.vlc.util.VLCRunnable;
@@ -88,14 +87,14 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
     public final static int MODE_SONG = 1;
     public final static int MODE_TOTAL = 2; // Number of audio browser modes
 
-    private ArrayList<MediaWrapper> mediaList;
+    private ArrayList<MediaWrapper> mMediaList;
     private String mTitle;
 
     /* All subclasses of Fragment must include a public empty constructor. */
     public AudioAlbumsSongsFragment() { }
 
     public void setMediaList(ArrayList<MediaWrapper> mediaList, String title) {
-        this.mediaList = mediaList;
+        mMediaList = mediaList;
         mTitle = title;
     }
 
@@ -110,6 +109,8 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
 
         mAudioController = AudioServiceController.getInstance();
         mMediaLibrary = MediaLibrary.getInstance();
+        if (savedInstanceState != null)
+            setMediaList(savedInstanceState.<MediaWrapper>getParcelableArrayList("list"), savedInstanceState.getString("title"));
     }
 
     @Override
@@ -175,15 +176,10 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
     }
 
     @Override
-    public void onPause() {
-        super.onPause();
-        AudioServiceController.getInstance().unbindAudioService(getActivity());
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        AudioServiceController.getInstance().bindAudioService(getActivity());
+    public void onSaveInstanceState(Bundle outState) {
+        outState.putParcelableArrayList("list", mMediaList);
+        outState.putString("title", mTitle);
+        super.onSaveInstanceState(outState);
     }
 
     @Override
@@ -226,7 +222,7 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
 
         int startPosition;
         int groupPosition;
-        List<String> medias;
+        List<MediaWrapper> medias;
         int id = item.getItemId();
 
         boolean useAllItems = id == R.id.audio_list_browser_play_all;
@@ -242,7 +238,7 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
         if (id == R.id.audio_list_browser_delete) {
             AlertDialog alertDialog = CommonDialogs.deleteMedia(
                     getActivity(),
-                    mSongsAdapter.getLocations(groupPosition).get(0),
+                    mSongsAdapter.getMedias(groupPosition).get(0).getLocation(),
                     new VLCRunnable(mSongsAdapter.getItem(groupPosition)) {
                         @Override
                         public void run(Object o) {
@@ -264,7 +260,7 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
         }
 
         if (useAllItems) {
-            medias = new ArrayList<String>();
+            medias = new ArrayList<MediaWrapper>();
             startPosition = mSongsAdapter.getListWithPosition(medias, groupPosition);
         }
         else {
@@ -272,10 +268,10 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
             switch (mViewPager.getCurrentItem())
             {
                 case MODE_ALBUM: // albums
-                    medias = mAlbumsAdapter.getLocations(groupPosition);
+                    medias = mAlbumsAdapter.getMedias(groupPosition);
                     break;
                 case MODE_SONG: // songs
-                    medias = mSongsAdapter.getLocations(groupPosition);
+                    medias = mSongsAdapter.getMedias(groupPosition);
                     break;
                 default:
                     return true;
@@ -291,7 +287,7 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
     }
 
     private void updateList() {
-        if (mediaList == null || getActivity() == null)
+        if (mMediaList == null || getActivity() == null)
             return;
 
         final Activity activity = getActivity();
@@ -301,12 +297,12 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
         new Thread(new Runnable() {
             @Override
             public void run() {
-                Collections.sort(mediaList, MediaComparators.byAlbum);
+                Collections.sort(mMediaList, MediaComparators.byAlbum);
                 activity.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        for (int i = 0; i < mediaList.size(); ++i) {
-                            MediaWrapper media = mediaList.get(i);
+                        for (int i = 0; i < mMediaList.size(); ++i) {
+                            MediaWrapper media = mMediaList.get(i);
                             mAlbumsAdapter.addSeparator(Util.getMediaReferenceArtist(activity, media), media);
                             mAlbumsAdapter.add(Util.getMediaAlbum(activity, media), null, media);
                             mSongsAdapter.addSeparator(Util.getMediaAlbum(activity, media), media);
@@ -324,21 +320,20 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
     OnItemClickListener albumsListener = new OnItemClickListener() {
         @Override
         public void onItemClick(AdapterView<?> av, View v, int p, long id) {
-            ArrayList<MediaWrapper> mediaList = mAlbumsAdapter.getMedia(p);
+            ArrayList<MediaWrapper> mediaList = mAlbumsAdapter.getMedias(p);
             Intent i = new Intent(getActivity(), SecondaryActivity.class);
             i.putExtra("fragment", SecondaryActivity.ALBUM);
             i.putParcelableArrayListExtra("list", mediaList);
-            i.putExtra("filter", Util.getMediaAlbum(getActivity(), mediaList.get(0)));
+            i.putExtra("filter", mAlbumsAdapter.getTitle(p));
             startActivity(i);
-            getActivity().finish();
         }
     };
 
     OnItemClickListener songsListener = new OnItemClickListener() {
         @Override
         public void onItemClick(AdapterView<?> av, View v, int p, long id) {
-            ArrayList<String> mediaLocation = mSongsAdapter.getLocations(p);
-            mAudioController.load(mediaLocation, 0);
+            List<MediaWrapper> media = mSongsAdapter.getItem(p).mMediaList;
+            mAudioController.load(media, 0);
         }
     };
 

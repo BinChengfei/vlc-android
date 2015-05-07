@@ -1,5 +1,55 @@
+Changes between 1.3.2 and 1.3.3:
+--------------------------------
+
+
+Changes between 1.3.1 and 1.3.2:
+--------------------------------
+
+Application:
+ * Move directories managment from settings to Directory browser
+ * Long press on +/- buttons to continuously increase/decrease audio au subs delay
+
+
+Changes between 1.3.1 and 1.3.2:
+--------------------------------
+
+Application:
+ * Fix wrong media opened from new local files browser
+ * Fix potential crash in the MainActivity
+ * Fix TV build
+
 Changes between 1.3.0 and 1.3.1:
 --------------------------------
+
+Application:
+ * Increase the accessibility of the application
+ * Change the Side Bar to meet Material Design update
+ * Rewrite the local files browsing, using the network browsing code, which adds
+   preparsing, prefetching, async, extensibility and code reuse
+ * New album browser view
+ * Fix back button behavior on VideoPlayer
+ * Improve Material look, Ripple effect on Lollipop
+ * Activate the Audio Delay control
+ * Smaller Video Player Controler
+ * Fix crashes, focus, rotations
+ * Update to AppCompat 22.1
+
+JNI:
+ * Add a way to capture stdout logs directly
+
+Core:
+ * Time stretching is now on by default
+ * Activate hardware acceleration for .TS files
+ * Fix crashes with live streaming and hardware acceleration
+ * Fix WMV on MTK devices
+ * Improve audio resampler quality
+
+TV:
+ * Fix recommendations duplication and improve recommendations
+ * Fix B button handling and TextViews
+
+Translations:
+ * Update of ALL the translations
 
 
 Changes between 1.2.6 and 1.3.0:

@@ -462,8 +462,6 @@ checkfail "contribs: bootstrap failed"
 
 echo "EXTRA_CFLAGS= -g ${EXTRA_CFLAGS}" >> config.mak
 echo "EXTRA_LDFLAGS= ${EXTRA_LDFLAGS}" >> config.mak
-export VLC_EXTRA_CFLAGS="${EXTRA_CFLAGS}"                   # Makefile
-export VLC_EXTRA_LDFLAGS="${EXTRA_LDFLAGS}"                 # Makefile
 
 make fetch
 checkfail "contribs: make fetch failed"
@@ -513,11 +511,11 @@ if [ ${ANDROID_ABI} = "x86" -a ${ANDROID_API} != "android-21" ] ; then
 fi
 if [ ! -e ./config.h -o "$RELEASE" = 1 ]; then
 CPPFLAGS="$CPPFLAGS" \
-CFLAGS="$CFLAGS ${VLC_EXTRA_CFLAGS} ${EXTRA_CFLAGS}" \
+CFLAGS="$CFLAGS ${EXTRA_CFLAGS}" \
 CXXFLAGS="$CFLAGS" \
 LDFLAGS="$LDFLAGS" \
 CC="${CROSS_COMPILE}gcc --sysroot=${SYSROOT}" \
-CXX="${CROSS_COMPILE}g++ --sysroot=${SYSROOT}" \
+CXX="${CROSS_COMPILE}g++ --sysroot=${SYSROOT} -D__cpp_static_assert=200410" \
 NM="${CROSS_COMPILE}nm" \
 STRIP="${CROSS_COMPILE}strip" \
 RANLIB="${CROSS_COMPILE}ranlib" \
@@ -631,7 +629,7 @@ $ANDROID_NDK/ndk-build -C libvlc \
     VLC_BUILD_DIR="$VLC_SRC_DIR/$VLC_BUILD_DIR" \
     VLC_CONTRIB="$VLC_CONTRIB" \
     VLC_MODULES="$VLC_MODULES" \
-    TARGET_CFLAGS="$VLC_EXTRA_CFLAGS" \
+    TARGET_CFLAGS="$EXTRA_CFLAGS" \
     EXTRA_LDFLAGS="$EXTRA_LDFLAGS" \
     LIBVLC_LIBS="$LIBVLC_LIBS" \
     LIBIOMX_LIBS="$LIBIOMX_LIBS" \
