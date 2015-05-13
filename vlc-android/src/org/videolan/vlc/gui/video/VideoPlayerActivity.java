@@ -58,6 +58,7 @@ import android.support.v7.app.ActionBar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.PopupMenu;
+import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -406,9 +407,7 @@ public class VideoPlayerActivity extends AppCompatActivity implements IVideoPlay
 
         // Position and remaining time
         mTime = (TextView) findViewById(R.id.player_overlay_time);
-        mTime.setOnClickListener(mRemainingTimeListener);
         mLength = (TextView) findViewById(R.id.player_overlay_length);
-        mLength.setOnClickListener(mRemainingTimeListener);
 
         // the info textView is not on the overlay
         mInfo = (TextView) findViewById(R.id.player_overlay_info);
@@ -420,15 +419,12 @@ public class VideoPlayerActivity extends AppCompatActivity implements IVideoPlay
                 mSettings.getString("screen_orientation_value", "4" /*SCREEN_ORIENTATION_SENSOR*/));
 
         mPlayPause = (ImageView) findViewById(R.id.player_overlay_play);
-        mPlayPause.setOnClickListener(mPlayPauseListener);
 
         mTracks = (ImageView) findViewById(R.id.player_overlay_tracks);
         mAdvOptions = (ImageView) findViewById(R.id.player_overlay_adv_function);
         mLock = (ImageView) findViewById(R.id.lock_overlay_button);
-        mLock.setOnClickListener(mLockListener);
 
         mSize = (ImageView) findViewById(R.id.player_overlay_size);
-        mSize.setOnClickListener(mSizeListener);
 
         mDelayPlus = (ImageView) findViewById(R.id.player_delay_plus);
         mDelayMinus = (ImageView) findViewById(R.id.player_delay_minus);
@@ -454,7 +450,6 @@ public class VideoPlayerActivity extends AppCompatActivity implements IVideoPlay
         }
 
         mSeekbar = (SeekBar) findViewById(R.id.player_overlay_seekbar);
-        mSeekbar.setOnSeekBarChangeListener(mSeekListener);
 
         /* Loading view */
         mLoading = (ImageView) findViewById(R.id.player_overlay_loading);
@@ -543,9 +538,37 @@ public class VideoPlayerActivity extends AppCompatActivity implements IVideoPlay
                 return super.onOptionsItemSelected(item);
         }
     }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mSwitchingView = false;
+
+        /*
+         * Set listeners here to avoid NPE when activity is closing
+         */
+        mSeekbar.setOnSeekBarChangeListener(mSeekListener);
+        mLock.setOnClickListener(mLockListener);
+        mPlayPause.setOnClickListener(mPlayPauseListener);
+        mLength.setOnClickListener(mRemainingTimeListener);
+        mTime.setOnClickListener(mRemainingTimeListener);
+        mSize.setOnClickListener(mSizeListener);
+
+        bindAudioService();
+
+        if (mIsLocked && mScreenOrientation == ActivityInfo.SCREEN_ORIENTATION_SENSOR)
+            setRequestedOrientation(mScreenOrientationLock);
+    }
+
     @Override
     protected void onPause() {
         super.onPause();
+        mSeekbar.setOnSeekBarChangeListener(null);
+        mLock.setOnClickListener(null);
+        mPlayPause.setOnClickListener(null);
+        mLength.setOnClickListener(null);
+        mTime.setOnClickListener(null);
+        mSize.setOnClickListener(null);
 
         /* Stop the earliest possible to avoid vout error */
         if (isFinishing())
@@ -644,17 +667,6 @@ public class VideoPlayerActivity extends AppCompatActivity implements IVideoPlay
         AudioServiceController.getInstance().unbindAudioService(this);
         mAudioServiceReady = false;
         mBound = false;
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        mSwitchingView = false;
-
-        bindAudioService();
-
-        if (mIsLocked && mScreenOrientation == ActivityInfo.SCREEN_ORIENTATION_SENSOR)
-            setRequestedOrientation(mScreenOrientationLock);
     }
 
     /**
@@ -1893,6 +1905,8 @@ public class VideoPlayerActivity extends AppCompatActivity implements IVideoPlay
     }
 
     private void doSeekTouch(int coef, float gesturesize, boolean seek) {
+        if (coef == 0)
+            coef = 1;
         // No seek action if coef > 0.5 and gesturesize < 1cm
         if (Math.abs(gesturesize) < 1 || !mCanSeek)
             return;
@@ -2612,6 +2626,9 @@ public class VideoPlayerActivity extends AppCompatActivity implements IVideoPlay
         String itemTitle = null;
         long intentPosition = -1; // position passed in by intent (ms)
         long mediaLength = 0l;
+        Intent intent = getIntent();
+        String action = intent.getAction();
+        Bundle extras = getIntent().getExtras();
 
         boolean wasPaused;
         /*
@@ -2629,13 +2646,10 @@ public class VideoPlayerActivity extends AppCompatActivity implements IVideoPlay
         if (wasPaused)
             Log.d(TAG, "Video was previously paused, resuming in paused mode");
 
-        if (getIntent().getAction() != null
-                && getIntent().getAction().equals(Intent.ACTION_VIEW)) {
+        if (TextUtils.equals(action, Intent.ACTION_VIEW)) {
             /* Started from external application 'content' */
-            data = getIntent().getData();
-            if (data != null
-                    && data.getScheme() != null
-                    && data.getScheme().equals("content")) {
+            data = intent.getData();
+            if (data != null && TextUtils.equals(data.getScheme(), "content")) {
 
 
                 // Mail-based apps - download the stream to a temporary file and play it
@@ -2693,9 +2707,9 @@ public class VideoPlayerActivity extends AppCompatActivity implements IVideoPlay
                     }
                 }
             } /* External application */
-            else if (getIntent().getDataString() != null) {
+            else if (intent.getDataString() != null) {
                 // Plain URI
-                mLocation = getIntent().getDataString();
+                mLocation = intent.getDataString();
                 // Remove VLC prefix if needed
                 if (mLocation.startsWith("vlc://")) {
                     mLocation = mLocation.substring(6);
@@ -2715,20 +2729,18 @@ public class VideoPlayerActivity extends AppCompatActivity implements IVideoPlay
             }
 
             // Try to get the position
-            if(getIntent().getExtras() != null)
-                intentPosition = getIntent().getExtras().getLong("position", -1);
+            if(extras != null)
+                intentPosition = extras.getLong("position", -1);
         } /* ACTION_VIEW */
         /* Started from VideoListActivity */
-        else if(getIntent().getAction() != null
-                && getIntent().getAction().equals(PLAY_FROM_VIDEOGRID)
-                && getIntent().getExtras() != null) {
-            mLocation = getIntent().getExtras().getString(PLAY_EXTRA_ITEM_LOCATION);
-            itemTitle = getIntent().getExtras().getString(PLAY_EXTRA_ITEM_TITLE);
-            fromStart = getIntent().getExtras().getBoolean(PLAY_EXTRA_FROM_START);
-            if (getIntent().hasExtra(PLAY_EXTRA_SUBTITLES_LOCATION))
-                mSubtitleSelectedFiles.add(getIntent().getExtras().getString(PLAY_EXTRA_SUBTITLES_LOCATION));
+        else if(TextUtils.equals(action, PLAY_FROM_VIDEOGRID) && extras != null) {
+            mLocation = extras.getString(PLAY_EXTRA_ITEM_LOCATION);
+            itemTitle = extras.getString(PLAY_EXTRA_ITEM_TITLE);
+            fromStart = extras.getBoolean(PLAY_EXTRA_FROM_START);
+            if (intent.hasExtra(PLAY_EXTRA_SUBTITLES_LOCATION))
+                mSubtitleSelectedFiles.add(extras.getString(PLAY_EXTRA_SUBTITLES_LOCATION));
             mAskResume &= !fromStart;
-            openedPosition = getIntent().getExtras().getInt(PLAY_EXTRA_OPENED_POSITION, -1);
+            openedPosition = extras.getInt(PLAY_EXTRA_OPENED_POSITION, -1);
         }
 
         if (openedPosition != -1) {
@@ -2772,7 +2784,7 @@ public class VideoPlayerActivity extends AppCompatActivity implements IVideoPlay
                 }
                 // Consume fromStart option after first use to prevent
                 // restarting again when playback is paused.
-                getIntent().putExtra(PLAY_EXTRA_FROM_START, false);
+                intent.putExtra(PLAY_EXTRA_FROM_START, false);
 
                 mLastAudioTrack = media.getAudioTrack();
                 mLastSpuTrack = media.getSpuTrack();

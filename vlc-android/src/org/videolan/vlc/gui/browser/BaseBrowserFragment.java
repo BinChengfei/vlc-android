@@ -34,7 +34,6 @@ import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.PopupMenu;
 import android.support.v7.widget.RecyclerView;
 import android.text.TextUtils;
-import android.util.Log;
 import android.util.SparseArray;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
@@ -58,7 +57,6 @@ import org.videolan.vlc.gui.CommonDialogs;
 import org.videolan.vlc.gui.DividerItemDecoration;
 import org.videolan.vlc.gui.MainActivity;
 import org.videolan.vlc.gui.SidebarAdapter;
-import org.videolan.vlc.gui.audio.MediaComparators;
 import org.videolan.vlc.gui.video.VideoPlayerActivity;
 import org.videolan.vlc.interfaces.IRefreshable;
 import org.videolan.vlc.util.Util;
@@ -71,7 +69,6 @@ import org.videolan.vlc.widget.SwipeRefreshLayout;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 
 
 public abstract class BaseBrowserFragment extends MediaBrowserFragment implements IRefreshable, MediaBrowser.EventListener, SwipeRefreshLayout.OnRefreshListener {
@@ -92,7 +89,7 @@ public abstract class BaseBrowserFragment extends MediaBrowserFragment implement
     public String mMrl;
     protected MediaWrapper mCurrentMedia;
     protected int mSavedPosition = -1, mFavorites = 0;
-    protected boolean mRoot;
+    public boolean mRoot;
     protected LibVLC mLibVLC;
 
     private SparseArray<ArrayList<MediaWrapper>> mMediaLists = new SparseArray<ArrayList<MediaWrapper>>();
@@ -128,14 +125,14 @@ public abstract class BaseBrowserFragment extends MediaBrowserFragment implement
     }
 
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState){
-        View v = inflater.inflate(R.layout.network_browser, container, false);
+        View v = inflater.inflate(R.layout.directory_browser, container, false);
         mRecyclerView = (ContextMenuRecyclerView) v.findViewById(R.id.network_list);
         mEmptyView = (TextView) v.findViewById(android.R.id.empty);
         mLayoutManager = new LinearLayoutManager(getActivity());
         mRecyclerView.addItemDecoration(new DividerItemDecoration(getActivity(), DividerItemDecoration.VERTICAL_LIST));
         mRecyclerView.setLayoutManager(mLayoutManager);
         mRecyclerView.setAdapter(mAdapter);
-        mRecyclerView.setOnScrollListener(mScrollListener);
+        mRecyclerView.addOnScrollListener(mScrollListener);
         registerForContextMenu(mRecyclerView);
 
         mSwipeRefreshLayout = (SwipeRefreshLayout) v.findViewById(R.id.swipeLayout);
@@ -182,7 +179,10 @@ public abstract class BaseBrowserFragment extends MediaBrowserFragment implement
     }
 
     public void goBack(){
-        getActivity().getSupportFragmentManager().popBackStack();
+        if (!mRoot)
+            getActivity().getSupportFragmentManager().popBackStack();
+        else
+            getActivity().finish();
     }
 
     public void browse (MediaWrapper media, int position){
@@ -199,10 +199,9 @@ public abstract class BaseBrowserFragment extends MediaBrowserFragment implement
         ft.commit();
     }
 
-
     @Override
     public void onMediaAdded(int index, Media media) {
-        mAdapter.addItem(media, mReadyToDisplay && mRoot, true);
+        mAdapter.addItem(media, mReadyToDisplay && mRoot, mRoot);
         if (mReadyToDisplay)
             updateEmptyView();
         if (mRoot)
@@ -273,6 +272,7 @@ public abstract class BaseBrowserFragment extends MediaBrowserFragment implement
 
     protected void updateDisplay() {
         if (!mAdapter.isEmpty()) {
+            mAdapter.sortList();
             if (mSavedPosition > 0) {
                 mLayoutManager.scrollToPositionWithOffset(mSavedPosition, 0);
                 mSavedPosition = 0;
@@ -341,17 +341,25 @@ public abstract class BaseBrowserFragment extends MediaBrowserFragment implement
 
     protected void setContextMenu(MenuInflater inflater, Menu menu, int position) {
         MediaWrapper mw = (MediaWrapper) mAdapter.getItem(position);
-        boolean canWrite = Util.canWrite(mw.getLocation());
         if (mw.getType() == MediaWrapper.TYPE_AUDIO || mw.getType() == MediaWrapper.TYPE_VIDEO) {
+            boolean canWrite = Util.canWrite(mw.getLocation());
             inflater.inflate(R.menu.directory_view_file, menu);
             menu.findItem(R.id.directory_view_delete).setVisible(canWrite);
         } else if (mw.getType() == MediaWrapper.TYPE_DIR) {
-            if (canWrite) {
+            boolean isEmpty = mMediaLists.get(position) == null || mMediaLists.get(position).isEmpty();
+            if (/*canWrite || */!isEmpty) {
                 inflater.inflate(R.menu.directory_view_dir, menu);
-                boolean nomedia = new File(mw.getLocation() + "/.nomedia").exists();
-                menu.findItem(R.id.directory_view_hide_media).setVisible(!nomedia);
-                menu.findItem(R.id.directory_view_show_media).setVisible(nomedia);
+//                if (canWrite) {
+//                    boolean nomedia = new File(mw.getLocation() + "/.nomedia").exists();
+//                    menu.findItem(R.id.directory_view_hide_media).setVisible(!nomedia);
+//                    menu.findItem(R.id.directory_view_show_media).setVisible(nomedia);
+//                } else {
+//                    menu.findItem(R.id.directory_view_hide_media).setVisible(false);
+//                    menu.findItem(R.id.directory_view_show_media).setVisible(false);
+//                }
+                menu.findItem(R.id.directory_view_play_folder).setVisible(!isEmpty);
             }
+
         }
     }
 
@@ -412,28 +420,28 @@ public abstract class BaseBrowserFragment extends MediaBrowserFragment implement
                 VideoPlayerActivity.start(getActivity(), mw.getLocation());
                 return true;
             case R.id.directory_view_play_folder:
-                ArrayList<MediaWrapper> mediaList = new ArrayList<>();
+                ArrayList<MediaWrapper> mediaList = new ArrayList<MediaWrapper>();
                 for (MediaWrapper mediaItem : mMediaLists.get(position)){
                     if (mediaItem.getType() == MediaWrapper.TYPE_AUDIO || mediaItem.getType() == MediaWrapper.TYPE_VIDEO)
                         mediaList.add(mediaItem);
                 }
                 Util.openList(getActivity(), mediaList, 0);
                 return true;
-            case R.id.directory_view_hide_media:
-                try {
-                    new File(mw.getLocation()+"/.nomedia").createNewFile();
-                    updateLib();
-                } catch (IOException e) {}
-                return true;
-            case R.id.directory_view_show_media:
-                new File(mw.getLocation()+"/.nomedia").delete();
-                updateLib();
-                return true;
+//            case R.id.directory_view_hide_media:
+//                try {
+//                    if (new File(mw.getLocation()+"/.nomedia").createNewFile())
+//                        updateLib();
+//                } catch (IOException e) {}
+//                return true;
+//            case R.id.directory_view_show_media:
+//                if (new File(mw.getLocation()+"/.nomedia").delete())
+//                    updateLib();
+//                return true;
         }
         return false;
     }
 
-    private void updateLib() {
+    protected void updateLib() {
         FragmentManager fm = getFragmentManager();
         FragmentTransaction ft = fm.beginTransaction();
         Fragment fragment = fm.findFragmentByTag(SidebarAdapter.SidebarEntry.ID_AUDIO);

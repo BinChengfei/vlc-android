@@ -29,7 +29,6 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
-import android.os.Environment;
 import android.support.v4.app.Fragment;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.widget.AppCompatEditText;
@@ -42,10 +41,10 @@ import android.widget.Toast;
 
 import org.videolan.libvlc.LibVlcUtil;
 import org.videolan.vlc.MediaDatabase;
+import org.videolan.vlc.MediaWrapper;
 import org.videolan.vlc.R;
 import org.videolan.vlc.util.AndroidDevices;
 import org.videolan.vlc.util.CustomDirectories;
-import org.videolan.vlc.util.Strings;
 
 import java.io.File;
 
@@ -93,10 +92,13 @@ public class FileBrowserFragment extends BaseBrowserFragment {
     protected void browseRoot() {
         mAdapter.updateMediaDirs();
         String storages[] = AndroidDevices.getMediaDirectories();
-        BaseBrowserAdapter.Storage storage;
+        MediaWrapper directory;
         for (String mediaDirLocation : storages) {
-            storage = new BaseBrowserAdapter.Storage(mediaDirLocation);
-            mAdapter.addItem(storage, false, false);
+            directory = new MediaWrapper(mediaDirLocation);
+            directory.setType(MediaWrapper.TYPE_DIR);
+            if (TextUtils.equals(AndroidDevices.EXTERNAL_PUBLIC_DIRECTORY, mediaDirLocation))
+                directory.setTitle(getString(R.string.internal_memory));
+            mAdapter.addItem(directory, false, false);
         }
         mHandler.sendEmptyMessage(BrowserFragmentHandler.MSG_HIDE_LOADING);
         if (mReadyToDisplay) {
@@ -164,19 +166,10 @@ public class FileBrowserFragment extends BaseBrowserFragment {
 
                 CustomDirectories.addCustomDirectory(f.getAbsolutePath());
                 refresh();
+                updateLib();
             }
         });
         mAlertDialog = builder.show();
-    }
-
-    protected void setContextMenu(MenuInflater inflater, Menu menu, int position) {
-        if (mRoot) {
-            BaseBrowserAdapter.Storage storage = (BaseBrowserAdapter.Storage) mAdapter.getItem(position);
-            boolean isCustom = CustomDirectories.contains(storage.getPath());
-            if (isCustom)
-                inflater.inflate(R.menu.directory_custom_dir, menu);
-        } else
-            super.setContextMenu(inflater, menu, position);
     }
 
     @Override
@@ -188,6 +181,7 @@ public class FileBrowserFragment extends BaseBrowserFragment {
                 CustomDirectories.removeCustomDirectory(storage.getPath());
                 mAdapter.updateMediaDirs();
                 mAdapter.removeItem(position, true);
+                updateLib();
                 return true;
             } else
                 return false;
