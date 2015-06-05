@@ -92,8 +92,15 @@ VLC_BOOTSTRAP_ARGS="\
     --disable-aribb24 \
     --disable-aribb25 \
     --disable-mpg123 \
+    --disable-wma-fixed	\
+    --disable-mad \
     --enable-libdsm \
 "
+
+####modify by aFei
+#    --disable-wma-fixed	\
+#    --disable-mad \
+#######
 
 ###########################
 # VLC CONFIGURE ARGUMENTS #
@@ -129,8 +136,7 @@ VLC_CONFIGURE_ARGS="\
     --enable-mod \
     --disable-sid \
     --disable-gme \
-    --disable-tremor \
-    --enable-mad \
+    --disable-tremor \ 
     --disable-dca \
     --disable-sdl-image \
     --enable-zvbi \
@@ -158,10 +164,14 @@ VLC_CONFIGURE_ARGS="\
     --disable-projectm \
     --disable-sout \
     --enable-vorbis \
+    --disable-mad  \
     --disable-faad \
     --disable-x264 \
     --disable-schroedinger \
 "
+####modify by aFei 
+#    --enable-mad \
+#######
 
 ########################
 # VLC MODULE BLACKLIST #

@@ -80,13 +80,16 @@ LOCAL_LDLIBS := -L$(VLC_CONTRIB)/lib \
 	-lEGL -lGLESv2 -ljpeg \
 	-ldvdnav -ldvdread -ldvdcss \
 	-ldsm -ltasn1 \
-	-lmad \
 	-lzvbi \
 	-lssh2 \
 	-lmodplug \
 	-lupnp -lthreadutil -lixml \
 	$(EXTRA_LDFLAGS)
 
+####
+#modify by aFei
+#-- -lmad
+###
 $(TARGET_OUT)/$(LOCAL_MODULE).so: $(ANDROID_PRIVATE_LIBS)
 include $(BUILD_SHARED_LIBRARY)
 

@@ -476,7 +476,8 @@ public class LibVLC {
     public void destroy() {
         Log.v(TAG, "Destroying LibVLC instance");
         nativeDestroy();
-        detachEventHandler();
+        //modify by bcf
+        //detachEventHandler();
         mIsInitialized = false;
     }
 
