@@ -20,7 +20,7 @@
 
 package org.videolan.libvlc.util;
 
-import android.os.Build;
+import android.net.Uri;
 
 import java.util.ArrayList;
 
@@ -41,12 +41,13 @@ public class MediaBrowser {
         //  "mdns"
     } : new String[]{"upnp"} ; //Only UPnP for release
 
-    private LibVLC mLibVlc;
-    private ArrayList<MediaDiscoverer> mMediaDiscoverers = new ArrayList<MediaDiscoverer>();
-    private ArrayList<Media> mDiscovererMediaArray = new ArrayList<Media>();
+    private final LibVLC mLibVlc;
+    private final ArrayList<MediaDiscoverer> mMediaDiscoverers = new ArrayList<MediaDiscoverer>();
+    private final ArrayList<Media> mDiscovererMediaArray = new ArrayList<Media>();
     private MediaList mBrowserMediaList;
     private Media mMedia;
     private EventListener mEventListener;
+    private boolean mAlive;
 
     /**
      * Listener called when medias are added or removed.
@@ -73,9 +74,10 @@ public class MediaBrowser {
     }
 
     public MediaBrowser(LibVLC libvlc, EventListener listener) {
-        mLibVlc = libvlc; // XXX mLibVlc.retain();
+        mLibVlc = libvlc;
+        mLibVlc.retain();
         mEventListener = listener;
-
+        mAlive = true;
     }
 
     private synchronized void reset() {
@@ -87,9 +89,11 @@ public class MediaBrowser {
             mMedia.release();
             mMedia = null;
         }
-        /* don't need to release the MediaList since it's either
-         * associated with a Media or a MediaDiscoverer that will release it */
-        mBrowserMediaList = null;
+
+        if (mBrowserMediaList != null) {
+            mBrowserMediaList.release();
+            mBrowserMediaList = null;
+        }
     }
 
     /**
@@ -97,6 +101,10 @@ public class MediaBrowser {
      */
     public synchronized void release() {
         reset();
+        if (!mAlive)
+            throw new IllegalStateException("MediaBrowser released more than one time");
+        mLibVlc.release();
+        mAlive = false;
     }
 
     /**
@@ -113,6 +121,7 @@ public class MediaBrowser {
         mMediaDiscoverers.add(md);
         final MediaList ml = md.getMediaList();
         ml.setEventListener(mDiscovererMediaListEventListener);
+        ml.release();
         md.start();
     }
 
@@ -135,12 +144,23 @@ public class MediaBrowser {
     }
 
     /**
-     * Browse to the specified mrl.
+     * Browse to the specified local path starting with '/'.
      *
-     * @param mrl
+     * @param path
      */
-    public synchronized void browse(String mrl) {
-        final Media media = new Media(mLibVlc, mrl);
+    public synchronized void browse(String path) {
+        final Media media = new Media(mLibVlc, path);
+        browse(media);
+        media.release();
+    }
+
+    /**
+     * Browse to the specified uri.
+     *
+     * @param uri
+     */
+    public synchronized void browse(Uri uri) {
+        final Media media = new Media(mLibVlc, uri);
         browse(media);
         media.release();
     }
@@ -170,15 +190,18 @@ public class MediaBrowser {
     }
 
     /**
-     * Get a media at a specified index.
+     * Get a media at a specified index. Should be released with {@link #release()}.
      */
     public synchronized Media getMediaAt(int index) {
-        return index >= 0 && index < getMediaCount() ?
-                mBrowserMediaList != null ? mBrowserMediaList.getMediaAt(index) :
-                mDiscovererMediaArray.get(index) : null;
+        if (index < 0 || index >= getMediaCount())
+            throw new IndexOutOfBoundsException();
+        final Media media = mBrowserMediaList != null ? mBrowserMediaList.getMediaAt(index) :
+                mDiscovererMediaArray.get(index);
+        media.retain();
+        return media;
     }
 
-    private MediaList.EventListener mBrowserMediaListEventListener = new MediaList.EventListener() {
+    private final MediaList.EventListener mBrowserMediaListEventListener = new MediaList.EventListener() {
         @Override
         public void onEvent(VLCObject.Event event) {
             if (mEventListener == null)
@@ -201,7 +224,7 @@ public class MediaBrowser {
         }
     };
 
-    private MediaList.EventListener mDiscovererMediaListEventListener = new MediaList.EventListener() {
+    private final MediaList.EventListener mDiscovererMediaListEventListener = new MediaList.EventListener() {
         @Override
         public void onEvent(VLCObject.Event event) {
             if (mEventListener == null)

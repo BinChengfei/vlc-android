@@ -20,7 +20,6 @@
 
 package org.videolan.vlc.gui.audio;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -52,20 +51,22 @@ import android.widget.TextView;
 import android.widget.ViewSwitcher;
 
 import org.videolan.vlc.MediaWrapper;
+import org.videolan.vlc.PlaybackService;
+import org.videolan.vlc.PlaybackServiceController;
 import org.videolan.vlc.R;
-import org.videolan.vlc.audio.AudioServiceController;
-import org.videolan.vlc.audio.RepeatType;
+import org.videolan.vlc.VLCApplication;
 import org.videolan.vlc.gui.AudioPlayerContainerActivity;
 import org.videolan.vlc.gui.PreferencesActivity;
 import org.videolan.vlc.gui.audio.widget.CoverMediaSwitcher;
 import org.videolan.vlc.gui.audio.widget.HeaderMediaSwitcher;
 import org.videolan.vlc.gui.dialogs.AdvOptionsDialog;
-import org.videolan.vlc.gui.dialogs.SavePlaylist;
+import org.videolan.vlc.gui.dialogs.SavePlaylistDialog;
 import org.videolan.vlc.interfaces.IAudioPlayer;
 import org.videolan.vlc.util.Strings;
 import org.videolan.vlc.util.Util;
 import org.videolan.vlc.widget.AudioMediaSwitcher.AudioMediaSwitcherListener;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickListener {
@@ -90,7 +91,7 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
 
     ViewSwitcher mSwitcher;
 
-    private AudioServiceController mAudioController;
+    private PlaybackServiceController mAudioController;
     private boolean mShowRemainingTime = false;
     private boolean mPreviewingSeek = false;
 
@@ -111,7 +112,7 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mAudioController = AudioServiceController.getInstance();
+        mAudioController = PlaybackServiceController.getInstance();
 
         mSongsListAdapter = new AudioPlaylistAdapter(getActivity());
     }
@@ -228,7 +229,7 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
         mSongsList.setOnItemClickListener(new OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> av, View v, int p, long id) {
-                mAudioController.load(mSongsListAdapter.getItems(), p);
+                mAudioController.playIndex(p);
             }
         });
         mSongsList.setOnItemLongClickListener(new OnItemLongClickListener() {
@@ -473,14 +474,14 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
     public void onRepeatClick(View view) {
         switch (mAudioController.getRepeatType()) {
             case None:
-                mAudioController.setRepeatType(RepeatType.All);
+                mAudioController.setRepeatType(PlaybackService.RepeatType.All);
                 break;
             case All:
-                mAudioController.setRepeatType(RepeatType.Once);
+                mAudioController.setRepeatType(PlaybackService.RepeatType.Once);
                 break;
             default:
             case Once:
-                mAudioController.setRepeatType(RepeatType.None);
+                mAudioController.setRepeatType(PlaybackService.RepeatType.None);
                 break;
         }
         update();
@@ -605,9 +606,9 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
         switch (v.getId()){
             case R.id.playlist_save:
                 FragmentManager fm = getActivity().getSupportFragmentManager();
-                SavePlaylist savePlaylistDialog = new SavePlaylist();
+                SavePlaylistDialog savePlaylistDialog = new SavePlaylistDialog();
                 Bundle args = new Bundle();
-                args.putParcelableArrayList(SavePlaylist.KEY_TRACKS, mSongsListAdapter.getItems());
+                args.putParcelableArrayList(SavePlaylistDialog.KEY_TRACKS, (ArrayList<MediaWrapper>) mAudioController.getMedias());
                 savePlaylistDialog.setArguments(args);
                 savePlaylistDialog.show(fm, "fragment_save_playlist");
                 break;
@@ -632,11 +633,8 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
             @Override
             public void run() {
                 if(!vibrated) {
-                    Activity activity = AudioPlayer.this.getActivity();
-                    if (activity != null) {
-                        ((android.os.Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE))
+                    ((android.os.Vibrator) VLCApplication.getAppContext().getSystemService(Context.VIBRATOR_SERVICE))
                                 .vibrate(80);
-                    }
                     vibrated = true;
                 }
 

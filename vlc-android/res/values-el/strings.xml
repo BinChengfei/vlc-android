@@ -10,7 +10,7 @@
     <string name="sortby_length">Διάρκεια</string>
     <string name="sortby_length_desc">Διάρκεια (φθιν.)</string>
     <string name="sortby_date">Ημερομηνία</string>
-    <string name="sortby_date_desc">Ημερομηνία (φθιν)</string>
+    <string name="sortby_date_desc">Ημερομηνία (φθιν.)</string>
     <string name="searchable_hint">Εύρεση...</string>
     <string name="history">Ιστορικό</string>
     <plurals name="search_found_results_quantity">
@@ -32,6 +32,7 @@
     <string name="set_song">Ορισμός ως ήχος κλήσης</string>
     <string name="info">Πληροφορίες</string>
     <string name="confirm_delete">Διαγραφή του αρχείου \'%1$s\';</string>
+    <string name="confirm_delete_playlist">Διαγραφή λίστας αναπαραγωγής \'%1$s\';</string>
     <string name="ringtone_set">Το αρχείο \'%1$s\' ορίστηκε ως ήχος κλήσης.</string>
     <string name="ringtone_error">Ένα σφάλμα παρουσιάστηκε κατά τον ορισμό του ήχου κλήσης.</string>
     <string name="pause">Παύση</string>
@@ -278,6 +279,7 @@
     <string name="file_other">Κλείστε το συρτάρι πλοήγησης</string>
     <string name="audio_delay">Καθυστέρηση ήχου</string>
     <string name="spu_delay">Καθυστέρηση υπότιτλου</string>
+    <string name="sleep_time_not_set">κανένα ορισμένο</string>
     <string name="network_shares_discovery">Εύρεση κοινόχρηστων δικτυακών αρχείων...</string>
     <string name="network_empty">Ο κατάλογος είναι άδειος</string>
     <string name="network_connection_needed">Καμία σύνδεση στο τοπικό δίκτυο</string>
@@ -285,12 +287,12 @@
     <string name="directory_show_medialib">Εμφάνιση στο MediaLib</string>
     <string name="directory_hide_medialib">Απόκρυψη από το MediaLib</string>
     <string name="playlist_save">Αποθήκευση λίστας αναπαραγωγής</string>
-    <string name="playlist_name_hint">όνομα λίστα αναπαραγωγής</string>
+    <string name="playlist_name_hint">όνομα λίστας αναπαραγωγής</string>
     <string name="go_to_chapter">Πήγαινε στο κεφάλαιο...</string>
     <string name="resume_from_position">Συνέχιση από την τελευταία θέση</string>
     <string name="confirm_resume">Συνέχιση από την τελευταία θέση;</string>
     <string name="confirm_resume_title">Να ζητηθεί επιβεβαίωση για συνέχιση</string>
-    <string name="confirm_resume_summary">αν ενεργοποιηθεί θα σας ζητηθεί να επιβεβαιώσετε πότε ένα βίντεο θα μπορεί να συνεχιστεί από την τελευταία θέση</string>
+    <string name="confirm_resume_summary">Αν ενεργοποιηθεί θα σας ζητηθεί να επιβεβαιώσετε πότε ένα βίντεο θα μπορεί να συνεχιστεί από την τελευταία θέση</string>
     <string name="directory_empty">Ο κατάλογος είναι άδειος</string>
     <!--Accessibility-->
     <string name="more_actions">Περισσότερες Ενέργειες</string>

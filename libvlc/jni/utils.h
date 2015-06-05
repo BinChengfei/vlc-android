@@ -38,6 +38,10 @@ struct fields {
     } String;
     struct {
         jclass clazz;
+        jfieldID descriptorID;
+    } FileDescriptor;
+    struct {
+        jclass clazz;
         jmethodID onNativeCrashID;
     } LibVLC;
     struct {
@@ -60,12 +64,6 @@ struct fields {
 };
 
 extern struct fields fields;
-
-libvlc_media_t *new_media(JNIEnv *env, jobject thiz, jstring fileLocation, bool noOmx, bool noVideo);
-
-libvlc_instance_t *getLibVlcInstance(JNIEnv *env, jobject thiz);
-
-libvlc_media_player_t *getMediaPlayer(JNIEnv *env, jobject thiz);
 
 jint getInt(JNIEnv *env, jobject thiz, const char* field);
 

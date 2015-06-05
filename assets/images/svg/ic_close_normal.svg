@@ -13,7 +13,7 @@
    height="24"
    id="svg4682"
    version="1.1"
-   inkscape:version="0.48.5 r10040"
+   inkscape:version="0.91 r13725"
    sodipodi:docname="ic_close_normal.svg"
    inkscape:export-filename="/home/corbax/Dev/android/Icons/Test 1/ic_play_normal.png"
    inkscape:export-xdpi="90"
@@ -28,7 +28,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="11.2"
-     inkscape:cx="-16.142136"
+     inkscape:cx="-31.454636"
      inkscape:cy="18.590584"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
@@ -58,17 +58,17 @@
     <g
        id="g5222"
        transform="matrix(0.70710678,-0.70710678,0.70710678,0.70710678,-300.26697,1029.6763)"
-       style="fill:#757575;fill-opacity:1">
+       style="fill:#212121;fill-opacity:1">
       <rect
          y="220.36218"
          x="212"
          height="16"
          width="2.5"
          id="rect5218"
-         style="color:#000000;fill:#757575;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:0.5;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate" />
+         style="color:#000000;fill:#212121;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:0.5;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate" />
       <rect
          transform="matrix(0,1,-1,0,0,0)"
-         style="color:#000000;fill:#757575;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:0.5;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
+         style="color:#000000;fill:#212121;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:0.5;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
          id="rect5220"
          width="2.5"
          height="16"

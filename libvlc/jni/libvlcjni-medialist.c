@@ -163,16 +163,9 @@ Java_org_videolan_libvlc_MediaList_nativeNewFromLibVlc(JNIEnv *env,
                                                        jobject thiz,
                                                        jobject libVlc)
 {
-    const char *p_error;
-
-    vlcjni_object *p_obj = VLCJniObject_newFromJavaLibVlc(env, thiz, libVlc,
-                                                          &p_error);
-
+    vlcjni_object *p_obj = VLCJniObject_newFromJavaLibVlc(env, thiz, libVlc);
     if (!p_obj)
-    {
-        throw_IllegalStateException(env, p_error);
         return;
-    }
 
     p_obj->u.p_ml = libvlc_media_list_new(p_obj->p_libvlc);
 
@@ -186,20 +179,13 @@ Java_org_videolan_libvlc_MediaList_nativeNewFromMediaDiscoverer(JNIEnv *env,
 {
     vlcjni_object *p_md_obj = VLCJniObject_getInstance(env, md);
     vlcjni_object *p_obj;
-    const char *p_error;
 
     if (!p_md_obj)
-    {
-        throw_IllegalStateException(env, "can't get MediaDiscoverer instance");
         return;
-    }
 
-    p_obj = VLCJniObject_newFromLibVlc(env, thiz, p_md_obj->p_libvlc, &p_error);
+    p_obj = VLCJniObject_newFromLibVlc(env, thiz, p_md_obj->p_libvlc);
     if (!p_obj)
-    {
-        throw_IllegalStateException(env, p_error);
         return;
-    }
 
     p_obj->u.p_ml = libvlc_media_discoverer_media_list(p_md_obj->u.p_md);
 
@@ -213,20 +199,13 @@ Java_org_videolan_libvlc_MediaList_nativeNewFromMedia(JNIEnv *env,
 {
     vlcjni_object *p_m_obj = VLCJniObject_getInstance(env, m);
     vlcjni_object *p_obj;
-    const char *p_error;
 
     if (!p_m_obj)
-    {
-        throw_IllegalStateException(env, "can't get Media instance");
         return;
-    }
 
-    p_obj = VLCJniObject_newFromLibVlc(env, thiz, p_m_obj->p_libvlc, &p_error);
+    p_obj = VLCJniObject_newFromLibVlc(env, thiz, p_m_obj->p_libvlc);
     if (!p_obj)
-    {
-        throw_IllegalStateException(env, p_error);
         return;
-    }
 
     p_obj->u.p_ml = libvlc_media_subitems(p_m_obj->u.p_m);
 
@@ -257,10 +236,7 @@ Java_org_videolan_libvlc_MediaList_nativeGetCount(JNIEnv *env, jobject thiz)
     jint count;
 
     if (!p_obj)
-    {
-        throw_IllegalStateException(env, "can't get MediaList instance");
         return 0;
-    }
 
     libvlc_media_list_lock(p_obj->u.p_ml);
     count = libvlc_media_list_count(p_obj->u.p_ml);

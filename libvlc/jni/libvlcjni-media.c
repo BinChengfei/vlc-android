@@ -110,43 +110,77 @@ Media_nativeNewCommon(JNIEnv *env, jobject thiz, vlcjni_object *p_obj)
     pthread_mutex_init(&p_obj->p_sys->lock, NULL);
     pthread_cond_init(&p_obj->p_sys->wait, NULL);
 
-    libvlc_media_add_option(p_obj->u.p_m, ":file-caching=1500");
-    libvlc_media_add_option(p_obj->u.p_m, ":network-caching=1500");
-    libvlc_media_add_option(p_obj->u.p_m, ":no-video");
     VLCJniObject_attachEvents(p_obj, Media_event_cb,
                               libvlc_media_event_manager(p_obj->u.p_m),
                               m_events);
 }
 
-void
-Java_org_videolan_libvlc_Media_nativeNewFromMrl(JNIEnv *env, jobject thiz,
-                                                jobject libVlc, jstring jmrl)
+static void
+Media_nativeNewFromCb(JNIEnv *env, jobject thiz, jobject libVlc, jstring jmrl,
+                      libvlc_media_t *(*pf)(libvlc_instance_t*, const char *))
 {
     vlcjni_object *p_obj;
     const char* p_mrl;
-    const char *p_error;
 
     if (!jmrl || !(p_mrl = (*env)->GetStringUTFChars(env, jmrl, 0)))
     {
-        throw_IllegalArgumentException(env, "mrl invalid");
+        throw_IllegalArgumentException(env, "path or location invalid");
         return;
     }
 
-    p_obj = VLCJniObject_newFromJavaLibVlc(env, thiz, libVlc, &p_error);
-
+    p_obj = VLCJniObject_newFromJavaLibVlc(env, thiz, libVlc);
     if (!p_obj)
     {
         (*env)->ReleaseStringUTFChars(env, jmrl, p_mrl);
-        throw_IllegalStateException(env, p_error);
         return;
     }
 
-    if (p_mrl[0] == '/' || p_mrl[0] == '\\')
-        p_obj->u.p_m = libvlc_media_new_path(p_obj->p_libvlc, p_mrl);
-    else
-        p_obj->u.p_m = libvlc_media_new_location(p_obj->p_libvlc, p_mrl);
+    p_obj->u.p_m = pf(p_obj->p_libvlc, p_mrl);
 
     (*env)->ReleaseStringUTFChars(env, jmrl, p_mrl);
+
+    Media_nativeNewCommon(env, thiz, p_obj);
+}
+
+void
+Java_org_videolan_libvlc_Media_nativeNewFromPath(JNIEnv *env, jobject thiz,
+                                                 jobject libVlc, jstring jpath)
+{
+    Media_nativeNewFromCb(env, thiz, libVlc, jpath, libvlc_media_new_path);
+}
+
+void
+Java_org_videolan_libvlc_Media_nativeNewFromLocation(JNIEnv *env, jobject thiz,
+                                                     jobject libVlc,
+                                                     jstring jlocation)
+{
+    Media_nativeNewFromCb(env, thiz, libVlc, jlocation,
+                          libvlc_media_new_location);
+}
+
+void
+Java_org_videolan_libvlc_Media_nativeNewFromFd(JNIEnv *env, jobject thiz,
+                                               jobject libVlc, jobject jfd)
+{
+    vlcjni_object *p_obj;
+    int fd = (*env)->GetIntField(env, jfd, fields.FileDescriptor.descriptorID);
+
+    if ((*env)->ExceptionOccurred(env))
+    {
+        (*env)->ExceptionClear(env);
+        fd = -1;
+    }
+    if (fd == -1)
+    {
+        throw_IllegalArgumentException(env, "fd invalid");
+        return;
+    }
+
+    p_obj = VLCJniObject_newFromJavaLibVlc(env, thiz, libVlc);
+    if (!p_obj)
+        return;
+
+    p_obj->u.p_m = libvlc_media_new_fd(p_obj->p_libvlc, fd);
 
     Media_nativeNewCommon(env, thiz, p_obj);
 }
@@ -157,20 +191,13 @@ Java_org_videolan_libvlc_Media_nativeNewFromMediaList(JNIEnv *env, jobject thiz,
 {
     vlcjni_object *p_ml_obj = VLCJniObject_getInstance(env, ml);
     vlcjni_object *p_obj;
-    const char *p_error;
 
     if (!p_ml_obj)
-    {
-        throw_IllegalStateException(env, "can't get MediaList instance");
         return;
-    }
 
-    p_obj = VLCJniObject_newFromLibVlc(env, thiz, p_ml_obj->p_libvlc, &p_error);
+    p_obj = VLCJniObject_newFromLibVlc(env, thiz, p_ml_obj->p_libvlc);
     if (!p_obj)
-    {
-        throw_IllegalStateException(env, p_error);
         return;
-    }
 
     p_obj->u.p_m = MediaList_get_media(p_ml_obj, index);
 
@@ -181,10 +208,12 @@ void
 Java_org_videolan_libvlc_Media_nativeRelease(JNIEnv *env, jobject thiz)
 {
     vlcjni_object *p_obj = VLCJniObject_getInstance(env, thiz);
-    vlcjni_object_sys *p_sys = p_obj->p_sys;
+    vlcjni_object_sys *p_sys;
 
     if (!p_obj)
         return;
+
+    p_sys = p_obj->p_sys;
 
     libvlc_media_release(p_obj->u.p_m);
 
@@ -202,10 +231,7 @@ Java_org_videolan_libvlc_Media_nativeGetMrl(JNIEnv *env, jobject thiz)
     const char *psz_mrl;
 
     if (!p_obj)
-    {
-        throw_IllegalStateException(env, "can't get Media instance");
         return NULL;
-    }
 
     psz_mrl = libvlc_media_get_mrl(p_obj->u.p_m);
     if (psz_mrl)
@@ -220,10 +246,8 @@ Java_org_videolan_libvlc_Media_nativeGetState(JNIEnv *env, jobject thiz)
     vlcjni_object *p_obj = VLCJniObject_getInstance(env, thiz);
 
     if (!p_obj)
-    {
-        throw_IllegalStateException(env, "can't get Media instance");
         return libvlc_Error;
-    }
+
     return libvlc_media_get_state(p_obj->u.p_m);
 }
 
@@ -234,10 +258,8 @@ Java_org_videolan_libvlc_Media_nativeGetMeta(JNIEnv *env, jobject thiz, jint id)
     jstring jmeta = NULL;
 
     if (!p_obj)
-    {
-        throw_IllegalStateException(env, "can't get Media instance");
         return NULL;
-    }
+
     if (id >= 0 && id < META_MAX) {
         char *psz_media = libvlc_media_get_meta(p_obj->u.p_m, id);
         if (psz_media) {
@@ -255,10 +277,8 @@ Java_org_videolan_libvlc_Media_nativeGetMetas(JNIEnv *env, jobject thiz)
     jobjectArray array;
 
     if (!p_obj)
-    {
-        throw_IllegalStateException(env, "can't get Media instance");
         return NULL;
-    }
+
     array = (*env)->NewObjectArray(env, META_MAX, fields.String.clazz, NULL);
     if (!array)
         return NULL;
@@ -374,10 +394,7 @@ Java_org_videolan_libvlc_Media_nativeGetTracks(JNIEnv *env, jobject thiz)
     jobjectArray array;
 
     if (!p_obj)
-    {
-        throw_IllegalStateException(env, "can't get Media instance");
         return NULL;
-    }
 
     i_nb_tracks = libvlc_media_tracks_get(p_obj->u.p_m, &pp_tracks);
     if (!i_nb_tracks)
@@ -409,10 +426,7 @@ Java_org_videolan_libvlc_Media_nativeParseAsync(JNIEnv *env, jobject thiz,
     vlcjni_object *p_obj = VLCJniObject_getInstance(env, thiz);
 
     if (!p_obj)
-    {
-        throw_IllegalStateException(env, "can't get Media instance");
         return false;
-    }
 
     pthread_mutex_lock(&p_obj->p_sys->lock);
     p_obj->p_sys->b_parsing_async = true;
@@ -427,10 +441,7 @@ Java_org_videolan_libvlc_Media_nativeParse(JNIEnv *env, jobject thiz, jint flags
     vlcjni_object *p_obj = VLCJniObject_getInstance(env, thiz);
 
     if (!p_obj)
-    {
-        throw_IllegalStateException(env, "can't get Media instance");
         return false;
-    }
 
     pthread_mutex_lock(&p_obj->p_sys->lock);
     p_obj->p_sys->b_parsing_sync = true;
@@ -453,10 +464,7 @@ Java_org_videolan_libvlc_Media_nativeGetDuration(JNIEnv *env, jobject thiz)
     vlcjni_object *p_obj = VLCJniObject_getInstance(env, thiz);
 
     if (!p_obj)
-    {
-        throw_IllegalStateException(env, "can't get Media instance");
         return 0;
-    }
 
     return libvlc_media_get_duration(p_obj->u.p_m);
 }
@@ -467,10 +475,28 @@ Java_org_videolan_libvlc_Media_nativeGetType(JNIEnv *env, jobject thiz)
     vlcjni_object *p_obj = VLCJniObject_getInstance(env, thiz);
 
     if (!p_obj)
-    {
-        throw_IllegalStateException(env, "can't get Media instance");
         return 0;
-    }
 
     return libvlc_media_get_type(p_obj->u.p_m);
+}
+
+void
+Java_org_videolan_libvlc_Media_nativeAddOption(JNIEnv *env, jobject thiz,
+                                               jstring joption)
+{
+    const char* p_option;
+    vlcjni_object *p_obj = VLCJniObject_getInstance(env, thiz);
+
+    if (!p_obj)
+        return;
+
+    if (!joption || !(p_option = (*env)->GetStringUTFChars(env, joption, 0)))
+    {
+        throw_IllegalArgumentException(env, "option invalid");
+        return;
+    }
+
+    libvlc_media_add_option(p_obj->u.p_m, p_option);
+
+    (*env)->ReleaseStringUTFChars(env, joption, p_option);
 }

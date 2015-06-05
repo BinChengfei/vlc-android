@@ -1,3 +1,36 @@
+Changes between 1.4.1 and 1.5.0:
+--------------------------------
+
+Application:
+ * Large code cleaning
+ * Fix advanced video options and video resolver crashing
+
+Chrome:
+ * Fix runtime issue with pipe2 absence
+
+libVLC:
+ * Start splitting libVLC and MediaPlayer classes
+
+
+Changes between 1.4.0 and 1.4.1:
+--------------------------------
+
+Application:
+ * 'Play' option in context menu on albums
+ * Handle FileProviders URIs from external apps
+ * Playback is tried for every filetype in directories browser mode
+ * Misc fixes, including in the file deletion part and file browsing
+
+SDK:
+ * VideoPlayerActivity now returns result, with return code and extras infos
+
+Core:
+ * Add new acceleration option using MediaCodec NDK API
+
+Translation updates:
+ * Most languages updated
+
+
 Changes between 1.3.2 and 1.4.0:
 --------------------------------
 
@@ -9,6 +42,7 @@ Application:
  * Fix regression on the mini-player displaying in some activities
  * Support Play all in folders
  * Fix crashes
+ * Don't use hardware decoding for some MTK devices on Android 4.1 because of a black screen (still investigating)
 
 Core:
  * Blacklist some Samsung devices from hardware decoding

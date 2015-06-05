@@ -127,9 +127,9 @@ public class DebugLogActivity extends Activity implements DebugLogService.Client
         public void onClick(View v) {
             final StringBuffer buffer = new StringBuffer();
             for (String line : mLogList)
-                buffer.append(line+"\n");
+                buffer.append(line).append("\n");
 
-            android.text.ClipboardManager clipboard = (android.text.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
+            android.text.ClipboardManager clipboard = (android.text.ClipboardManager)VLCApplication.getAppContext().getSystemService(CLIPBOARD_SERVICE);
             clipboard.setText(buffer);
 
             Toast.makeText(DebugLogActivity.this, R.string.copied_to_clipboard, Toast.LENGTH_SHORT).show();

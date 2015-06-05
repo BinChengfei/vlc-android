@@ -32,6 +32,7 @@
     <string name="set_song">Ange som ringsignal</string>
     <string name="info">Information</string>
     <string name="confirm_delete">Radera filen \'%1$s\'?</string>
+    <string name="confirm_delete_playlist">Radera spellistan \'%1$s\'?</string>
     <string name="ringtone_set">Filen \'%1$s\' ställdes in som ringsignal.</string>
     <string name="ringtone_error">Ett fel inträffade när ringsignalen ställdes in.</string>
     <string name="pause">Pausa</string>
@@ -278,6 +279,7 @@
     <string name="file_other">Stäng navigeringsmenyn</string>
     <string name="audio_delay">Ljudfördröjning</string>
     <string name="spu_delay">Undertextfördröjning</string>
+    <string name="sleep_time_not_set">inte inställd</string>
     <string name="network_shares_discovery">Söker efter nätverksdelningar...</string>
     <string name="network_empty">Denna filkatalog är tom.</string>
     <string name="network_connection_needed">Ingen anslutning till lokalt nätverk</string>

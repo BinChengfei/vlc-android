@@ -37,6 +37,7 @@ import org.videolan.vlc.MediaDatabase;
 import org.videolan.vlc.MediaLibrary;
 import org.videolan.vlc.MediaWrapper;
 import org.videolan.vlc.R;
+import org.videolan.vlc.VLCApplication;
 import org.videolan.vlc.gui.PreferencesActivity;
 import org.videolan.vlc.gui.video.VideoPlayerActivity;
 import org.videolan.vlc.util.BitmapUtil;
@@ -64,7 +65,7 @@ public class RecommendationsService extends IntentService {
         mContext = this;
         if (mNotificationManager == null) {
             mNotificationManager = (NotificationManager)
-                    mContext.getSystemService(Context.NOTIFICATION_SERVICE);
+                    VLCApplication.getAppContext().getSystemService(Context.NOTIFICATION_SERVICE);
         }
     }
 
@@ -143,7 +144,7 @@ public class RecommendationsService extends IntentService {
         for (MediaWrapper mediaWrapper : videoList){
             if (TextUtils.equals(mediaWrapper.getLocation(), last))
                 continue;
-            pic = mMediaDatabase.getPicture(mContext, mediaWrapper.getLocation());
+            pic = mMediaDatabase.getPicture(mediaWrapper.getLocation());
             if (pic != null && pic.getByteCount() > 4 && mediaWrapper.getTime() == 0) {
                 buildRecommendation(mediaWrapper, ++id, Notification.PRIORITY_DEFAULT);
             }

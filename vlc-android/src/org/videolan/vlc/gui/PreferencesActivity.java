@@ -50,17 +50,18 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.Toast;
 
-import org.videolan.libvlc.HWDecoderUtil;
+import org.videolan.libvlc.util.HWDecoderUtil;
 import org.videolan.libvlc.LibVLC;
 import org.videolan.vlc.MediaDatabase;
+import org.videolan.vlc.PlaybackService;
+import org.videolan.vlc.PlaybackServiceController;
 import org.videolan.vlc.R;
-import org.videolan.vlc.audio.AudioService;
-import org.videolan.vlc.audio.AudioServiceController;
 import org.videolan.vlc.gui.audio.AudioUtil;
 import org.videolan.vlc.util.AndroidDevices;
 import org.videolan.vlc.util.BitmapCache;
 import org.videolan.vlc.util.Util;
 import org.videolan.vlc.util.VLCInstance;
+import org.videolan.vlc.util.VLCOptions;
 
 @SuppressWarnings("deprecation")
 public class PreferencesActivity extends PreferenceActivity implements OnSharedPreferenceChangeListener {
@@ -125,7 +126,7 @@ public class PreferencesActivity extends PreferenceActivity implements OnSharedP
                 new OnPreferenceClickListener() {
                     @Override
                     public boolean onPreferenceClick(Preference preference) {
-                        AudioServiceController.getInstance().detectHeadset(checkboxHS.isChecked());
+                        PlaybackServiceController.getInstance().detectHeadset(checkboxHS.isChecked());
                         return true;
                     }
                 });
@@ -233,12 +234,12 @@ public class PreferencesActivity extends PreferenceActivity implements OnSharedP
             aoutPref.setEntryValues(aoutEntriesIdValues);
             final String value = aoutPref.getValue();
             if (value == null)
-                aoutPref.setValue(String.valueOf(LibVLC.AOUT_AUDIOTRACK));
+                aoutPref.setValue(String.valueOf(VLCOptions.AOUT_AUDIOTRACK));
             else {
                 /* number of entries decreased, handle old values */
                 final int intValue = Integer.parseInt(value);
-                if (intValue != LibVLC.AOUT_AUDIOTRACK && intValue != LibVLC.AOUT_OPENSLES)
-                    aoutPref.setValue(String.valueOf(LibVLC.AOUT_AUDIOTRACK));
+                if (intValue != VLCOptions.AOUT_AUDIOTRACK && intValue != VLCOptions.AOUT_OPENSLES)
+                    aoutPref.setValue(String.valueOf(VLCOptions.AOUT_AUDIOTRACK));
             }
         }
         // Video output
@@ -347,8 +348,8 @@ public class PreferencesActivity extends PreferenceActivity implements OnSharedP
                 || key.equalsIgnoreCase("enable_verbose_mode")
                 || key.equalsIgnoreCase("network_caching")
                 || key.equalsIgnoreCase("dev_hardware_decoder")) {
-            VLCInstance.updateLibVlcSettings(sharedPreferences);
-            VLCInstance.restart(this);
+            VLCInstance.restart(this, sharedPreferences);
+            restartService(this);
         }
     }
 
@@ -375,22 +376,22 @@ public class PreferencesActivity extends PreferenceActivity implements OnSharedP
     @Override
     protected void onResume() {
         super.onResume();
-        AudioServiceController.getInstance().bindAudioService(this);
+        PlaybackServiceController.getInstance().bindAudioService(this);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        AudioServiceController.getInstance().unbindAudioService(this);
+        PlaybackServiceController.getInstance().unbindAudioService(this);
     }
 
     private void restartService(Context context) {
-        Intent service = new Intent(context, AudioService.class);
+        Intent service = new Intent(context, PlaybackService.class);
 
-        AudioServiceController.getInstance().unbindAudioService(PreferencesActivity.this);
+        PlaybackServiceController.getInstance().unbindAudioService(PreferencesActivity.this);
         context.stopService(service);
 
         context.startService(service);
-        AudioServiceController.getInstance().bindAudioService(PreferencesActivity.this);
+        PlaybackServiceController.getInstance().bindAudioService(PreferencesActivity.this);
     }
 }

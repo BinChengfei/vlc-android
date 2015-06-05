@@ -30,6 +30,7 @@ import org.videolan.vlc.MediaLibrary;
 import org.videolan.vlc.MediaWrapper;
 import org.videolan.vlc.R;
 import org.videolan.vlc.Thumbnailer;
+import org.videolan.vlc.VLCApplication;
 import org.videolan.vlc.gui.PreferencesActivity;
 import org.videolan.vlc.gui.tv.audioplayer.AudioPlayerActivity;
 import org.videolan.vlc.gui.tv.browser.MusicFragment;
@@ -113,7 +114,7 @@ public class MainTvActivity extends Activity implements IVideoBrowser, OnItemVie
         /*
          * skip browser and show directly Audio Player if a song is playing
          */
-        if (VLCInstance.get().isPlaying()){
+        if (VLCInstance.getMainMediaPlayer().isPlaying()){
             startActivity(new Intent(this, AudioPlayerActivity.class));
             finish();
             return;
@@ -142,7 +143,7 @@ public class MainTvActivity extends Activity implements IVideoBrowser, OnItemVie
 
         mBrowseFragment.setOnSearchClickedListener(this);
         mRootContainer = mBrowseFragment.getView();
-        mMediaLibrary.loadMediaItems(this, true);
+        mMediaLibrary.loadMediaItems(true);
         BackgroundManager.getInstance(this).attach(getWindow());
     }
 
@@ -190,7 +191,7 @@ public class MainTvActivity extends Activity implements IVideoBrowser, OnItemVie
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == ACTIVITY_RESULT_PREFERENCES) {
             if (resultCode == PreferencesActivity.RESULT_RESCAN)
-                MediaLibrary.getInstance().loadMediaItems(this, true);
+                MediaLibrary.getInstance().loadMediaItems(true);
             else if (resultCode == PreferencesActivity.RESULT_RESTART) {
                 Intent intent = getIntent();
                 finish();
@@ -404,7 +405,7 @@ public class MainTvActivity extends Activity implements IVideoBrowser, OnItemVie
                 MediaDatabase mediaDatabase = MediaDatabase.getInstance();
                 if (sThumbnailer != null && videoList != null && !videoList.isEmpty()) {
                     for (MediaWrapper MediaWrapper : videoList){
-                        picture = mediaDatabase.getPicture(mContext, MediaWrapper.getLocation());
+                        picture = mediaDatabase.getPicture(MediaWrapper.getLocation());
                         if (picture== null)
                             sThumbnailer.addJob(MediaWrapper);
                     }
@@ -427,7 +428,7 @@ public class MainTvActivity extends Activity implements IVideoBrowser, OnItemVie
                 return;
             String action = intent.getAction();
             if (ConnectivityManager.CONNECTIVITY_ACTION.equals(action)) {
-                final NetworkInfo networkInfo = ((ConnectivityManager)context.getSystemService(
+                final NetworkInfo networkInfo = ((ConnectivityManager) VLCApplication.getAppContext().getSystemService(
                         Context.CONNECTIVITY_SERVICE)).getActiveNetworkInfo();
                 if (networkInfo == null || networkInfo.getState() == NetworkInfo.State.CONNECTED) {
                     if (networkInfo == null){

@@ -22,7 +22,7 @@ package org.videolan.libvlc;
 
 import android.util.SparseArray;
 
-public final class MediaList extends VLCObject {
+public class MediaList extends VLCObject {
     private final static String TAG = "LibVLC/MediaList";
 
     public static class Event extends VLCObject.Event {
@@ -43,7 +43,7 @@ public final class MediaList extends VLCObject {
     }
 
     private int mCount = 0;
-    private SparseArray<Media> mMediaArray = new SparseArray<Media>();
+    private final SparseArray<Media> mMediaArray = new SparseArray<Media>();
 
     private void init() {
         mCount = nativeGetCount();
@@ -136,12 +136,14 @@ public final class MediaList extends VLCObject {
      * Get a Media at specified index.
      *
      * @param index
-     * @return Media hold by MediaList, Should NOT be released.
+     * @return Media hold by MediaList. This Media should be released with {@link #release()}.
      */
     public synchronized Media getMediaAt(int index) {
-        if (index < 0 || index > getCount())
-            return null;
-        return mMediaArray.get(index);
+        if (index < 0 || index >= getCount())
+            throw new IndexOutOfBoundsException();
+        final Media media = mMediaArray.get(index);
+        media.retain();
+        return media;
     }
 
     @Override

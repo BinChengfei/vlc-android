@@ -41,6 +41,7 @@ import android.widget.TextView;
 import org.videolan.libvlc.LibVLC;
 import org.videolan.libvlc.Media;
 import org.videolan.libvlc.util.Extensions;
+import org.videolan.libvlc.util.VLCUtil;
 import org.videolan.vlc.MediaLibrary;
 import org.videolan.vlc.MediaWrapper;
 import org.videolan.vlc.R;
@@ -117,7 +118,7 @@ public class MediaInfoFragment extends ListFragment {
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
-                            boolean deleted = Util.deleteFile(getActivity(), mItem.getLocation());
+                            boolean deleted = Util.deleteFile(mItem.getLocation());
                             if (deleted) {
                                 mHandler.obtainMessage(EXIT).sendToTarget();
                             }
@@ -219,13 +220,14 @@ public class MediaInfoFragment extends ListFragment {
             final LibVLC libVlc = VLCInstance.get();
             if (libVlc == null)
                 return;
-            mMedia = new Media(libVlc, mItem.getLocation());
+            mMedia = new Media(libVlc, mItem.getUri());
             mMedia.parse();
-            mMedia.release();
             int videoHeight = mItem.getHeight();
             int videoWidth = mItem.getWidth();
-            if (videoWidth == 0 || videoHeight == 0)
+            if (videoWidth == 0 || videoHeight == 0) {
+                mMedia.release();
                 return;
+            }
 
             mHandler.sendEmptyMessage(NEW_TEXT);
 
@@ -242,7 +244,8 @@ public class MediaInfoFragment extends ListFragment {
             // Get the thumbnail.
             mImage = Bitmap.createBitmap(width, height, Config.ARGB_8888);
 
-            byte[] b = libVlc.getThumbnail(mItem.getLocation(), width, height);
+            byte[] b = VLCUtil.getThumbnail(mMedia, width, height);
+            mMedia.release();
 
             if (b == null) // We were not able to create a thumbnail for this item.
                 return;
@@ -321,7 +324,7 @@ public class MediaInfoFragment extends ListFragment {
                     break;
                 case EXIT:
                     fragment.getActivity().finish();
-                    MediaLibrary.getInstance().loadMediaItems(fragment.getActivity(), true);
+                    MediaLibrary.getInstance().loadMediaItems(true);
                     break;
                 case SHOW_SUBTITLES:
                     fragment.mSubtitles.setVisibility(View.VISIBLE);

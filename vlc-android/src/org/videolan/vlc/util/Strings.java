@@ -119,7 +119,7 @@ public class Strings {
 
     public static String readableFileSize(long size) {
         if(size <= 0) return "0";
-        final String[] units = new String[] { "B", "kB", "MB", "GB", "TB" };
+        final String[] units = new String[] { "B", "KiB", "MiB", "GiB", "TiB" };
         int digitGroups = (int) (Math.log10(size)/Math.log10(1024));
         return new DecimalFormat("#,##0.#").format(size/Math.pow(1024, digitGroups)) + " " + units[digitGroups];
     }
@@ -153,5 +153,12 @@ public class Strings {
         } else if (index == 0)
             parentPath = "/";
         return parentPath;
+    }
+
+    public static String removeFileProtocole(String path){
+        if (path.startsWith("file://"))
+            return path.substring(7);
+        else
+            return path;
     }
 }

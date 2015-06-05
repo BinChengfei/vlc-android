@@ -20,7 +20,11 @@
 
 package org.videolan.libvlc;
 
-public final class Media extends VLCObject {
+import android.net.Uri;
+
+import java.io.FileDescriptor;
+
+public class Media extends VLCObject {
     private final static String TAG = "LibVLC/Media";
 
     /**
@@ -222,13 +226,37 @@ public final class Media extends VLCObject {
     private int mType = Type.Unknown;
 
     /**
-     * Create a Media from libVLC and a mrl.
+     * Create a Media from libVLC and a local path starting with '/'.
      *
      * @param libVLC
-     * @param mrl
+     * @param path
      */
-    public Media(LibVLC libVLC, String mrl) {
-        nativeNewFromMrl(libVLC, mrl);
+    public Media(LibVLC libVLC, String path) {
+        nativeNewFromPath(libVLC, path);
+        mMrl = nativeGetMrl();
+        mType = nativeGetType();
+    }
+
+    /**
+     * Create a Media from libVLC and a Uri
+     *
+     * @param libVLC
+     * @param uri
+     */
+    public Media(LibVLC libVLC, Uri uri) {
+        nativeNewFromLocation(libVLC, uri.toString());
+        mMrl = nativeGetMrl();
+        mType = nativeGetType();
+    }
+
+    /**
+     * Create a Media from libVLC and a FileDescriptor
+     *
+     * @param libVLC
+     * @param fd
+     */
+    public Media(LibVLC libVLC, FileDescriptor fd) {
+        nativeNewFromFD(libVLC, fd);
         mMrl = nativeGetMrl();
         mType = nativeGetType();
     }
@@ -239,8 +267,8 @@ public final class Media extends VLCObject {
      * @param index
      */
     protected Media(MediaList ml, int index) {
-        if (ml.isReleased())
-            throw new IllegalArgumentException("MediaList is not native");
+        if (ml == null || ml.isReleased())
+            throw new IllegalArgumentException("MediaList is null or released");
         nativeNewFromMediaList(ml, index);
         mMrl = nativeGetMrl();
         mNativeMetas = nativeGetMetas();
@@ -251,9 +279,14 @@ public final class Media extends VLCObject {
     protected synchronized Event onEventNative(int eventType, long arg1, long arg2) {
         switch (eventType) {
         case VLCObject.Events.MediaMetaChanged:
-            int id = (int) arg1;
-            if (id >= 0 && id < Meta.MAX)
-                mNativeMetas[id] = nativeGetMeta(id);
+            // either we update all metas (if first call) or we update a specific meta
+            if (mNativeMetas == null) {
+                mNativeMetas = nativeGetMetas();
+            } else {
+                int id = (int) arg1;
+                if (id >= 0 && id < Meta.MAX)
+                    mNativeMetas[id] = nativeGetMeta(id);
+            }
             break;
         case VLCObject.Events.MediaDurationChanged:
             mDuration = nativeGetDuration();
@@ -292,19 +325,24 @@ public final class Media extends VLCObject {
     }
 
     /**
-     * Get the subItems MediaList associated with the Media.
+     * Get the subItems MediaList associated with the Media. This Media should be alive (not released).
      *
-     * @return subItems as a MediaList, Should NOT be released.
+     * @return subItems as a MediaList. This MediaList should be released with {@link #release()}.
      */
     public synchronized MediaList subItems() {
-        if (mSubItems == null && !isReleased())
+        if (isReleased())
+            throw new IllegalStateException("Media is released");
+        if (mSubItems == null)
             mSubItems = new MediaList(this);
+        mSubItems.retain();
         return mSubItems;
     }
 
     private synchronized void postParse() {
-        // fetch if native, parsed and not fetched
-        if (!isReleased() && (mParseStatus & PARSE_STATUS_PARSING) != 0
+        if (isReleased())
+            throw new IllegalStateException("Media is released");
+        // fetch if parsed and not fetched
+        if ((mParseStatus & PARSE_STATUS_PARSING) != 0
                 && (mParseStatus & PARSE_STATUS_PARSED) == 0) {
             mParseStatus &= ~PARSE_STATUS_PARSING;
             mParseStatus |= PARSE_STATUS_PARSED;
@@ -319,13 +357,13 @@ public final class Media extends VLCObject {
     }
 
     /**
-     * Parse the media synchronously with a flag.
+     * Parse the media synchronously with a flag. This Media should be alive (not released).
      *
      * @param flags see {@link Parse}
      * @return true in case of success, false otherwise.
      */
     public synchronized boolean parse(int flags) {
-        if (!isReleased() && (mParseStatus & (PARSE_STATUS_PARSED|PARSE_STATUS_PARSING)) == 0) {
+        if ((mParseStatus & (PARSE_STATUS_PARSED|PARSE_STATUS_PARSING)) == 0) {
             mParseStatus |= PARSE_STATUS_PARSING;
             if (nativeParse(flags)) {
                 postParse();
@@ -336,7 +374,7 @@ public final class Media extends VLCObject {
     }
 
     /**
-     * Parse the media and local art synchronously.
+     * Parse the media and local art synchronously. This Media should be alive (not released).
      *
      * @return true in case of success, false otherwise.
      */
@@ -345,7 +383,7 @@ public final class Media extends VLCObject {
     }
 
     /**
-     * Parse the media asynchronously with a flag.
+     * Parse the media asynchronously with a flag. This Media should be alive (not released).
      *
      * To track when this is over you can listen to {@link VLCObject.Events#MediaParsedChanged}
      * event (only if this methods returned true).
@@ -354,7 +392,7 @@ public final class Media extends VLCObject {
      * @return true in case of success, false otherwise.
      */
     public synchronized boolean parseAsync(int flags) {
-        if (!isReleased() && (mParseStatus & (PARSE_STATUS_PARSED|PARSE_STATUS_PARSING)) == 0) {
+        if ((mParseStatus & (PARSE_STATUS_PARSED|PARSE_STATUS_PARSING)) == 0) {
             mParseStatus |= PARSE_STATUS_PARSING;
             return nativeParseAsync(flags);
         } else
@@ -362,7 +400,7 @@ public final class Media extends VLCObject {
     }
 
     /**
-     * Parse the media and local art asynchronously.
+     * Parse the media and local art asynchronously. This Media should be alive (not released).
      *
      * @see #parseAsync(int)
      */
@@ -371,7 +409,7 @@ public final class Media extends VLCObject {
     }
 
     /**
-     * Returns true if the media is parsed
+     * Returns true if the media is parsed This Media should be alive (not released).
      */
     public synchronized boolean isParsed() {
         return (mParseStatus & PARSE_STATUS_PARSED) != 0;
@@ -420,6 +458,15 @@ public final class Media extends VLCObject {
         return mNativeMetas != null ? mNativeMetas[id] : null;
     }
 
+    /**
+     * Add an option to this Media. This Media should be alive (not released).
+     *
+     * @param option ":option" or ":option=value"
+     */
+    public synchronized void addOption(String option) {
+        nativeAddOption(option);
+    }
+
     @Override
     protected void onReleaseNative() {
         if (mSubItems != null)
@@ -428,7 +475,9 @@ public final class Media extends VLCObject {
     }
 
     /* JNI */
-    private native void nativeNewFromMrl(LibVLC libVLC, String mrl);
+    private native void nativeNewFromPath(LibVLC libVLC, String path);
+    private native void nativeNewFromLocation(LibVLC libVLC, String location);
+    private native void nativeNewFromFD(LibVLC libVLC, FileDescriptor fd);
     private native void nativeNewFromMediaList(MediaList ml, int index);
     private native void nativeRelease();
     private native boolean nativeParseAsync(int flags);
@@ -440,4 +489,5 @@ public final class Media extends VLCObject {
     private native Track[] nativeGetTracks();
     private native long nativeGetDuration();
     private native int nativeGetType();
+    private native void nativeAddOption(String option);
 }

@@ -25,9 +25,9 @@ import java.util.Collections;
 
 import org.videolan.vlc.MediaLibrary;
 import org.videolan.vlc.MediaWrapper;
+import org.videolan.vlc.PlaybackService;
+import org.videolan.vlc.PlaybackServiceController;
 import org.videolan.vlc.R;
-import org.videolan.vlc.audio.AudioServiceController;
-import org.videolan.vlc.audio.RepeatType;
 import org.videolan.vlc.gui.DividerItemDecoration;
 import org.videolan.vlc.gui.audio.AudioUtil;
 import org.videolan.vlc.gui.audio.MediaComparators;
@@ -47,12 +47,12 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-public class AudioPlayerActivity extends Activity implements AudioServiceController.AudioServiceConnectionListener, IAudioPlayer, View.OnFocusChangeListener {
+public class AudioPlayerActivity extends Activity implements PlaybackServiceController.AudioServiceConnectionListener, IAudioPlayer, View.OnFocusChangeListener {
     public static final String TAG = "VLC/AudioPlayerActivity";
 
     public static final String MEDIA_LIST = "media_list";
 
-    private AudioServiceController mAudioController;
+    private PlaybackServiceController mAudioController;
     private RecyclerView mRecyclerView;
     private PlaylistAdapter mAdapter;
     private LinearLayoutManager mLayoutManager;
@@ -84,7 +84,7 @@ public class AudioPlayerActivity extends Activity implements AudioServiceControl
         mAdapter = new PlaylistAdapter(this, mMediaList);
         mRecyclerView.setAdapter(mAdapter);
 
-        mAudioController = AudioServiceController.getInstance();
+        mAudioController = PlaybackServiceController.getInstance();
 
         mAudioController.getRepeatType();
         mTitleTv = (TextView)findViewById(R.id.media_title);
@@ -282,15 +282,15 @@ public class AudioPlayerActivity extends Activity implements AudioServiceControl
     }
 
     private void updateRepeatMode() {
-        RepeatType type = mAudioController.getRepeatType();
-        if (type == RepeatType.None){
-            mAudioController.setRepeatType(RepeatType.All);
+        PlaybackService.RepeatType type = mAudioController.getRepeatType();
+        if (type == PlaybackService.RepeatType.None){
+            mAudioController.setRepeatType(PlaybackService.RepeatType.All);
             mRepeat.setImageResource(R.drawable.ic_repeat_on);
-        } else if (type == RepeatType.All) {
-            mAudioController.setRepeatType(RepeatType.Once);
+        } else if (type == PlaybackService.RepeatType.All) {
+            mAudioController.setRepeatType(PlaybackService.RepeatType.Once);
             mRepeat.setImageResource(R.drawable.ic_repeat_one);
-        } else if (type == RepeatType.Once) {
-            mAudioController.setRepeatType(RepeatType.None);
+        } else if (type == PlaybackService.RepeatType.Once) {
+            mAudioController.setRepeatType(PlaybackService.RepeatType.None);
             mRepeat.setImageResource(R.drawable.ic_repeat);
         }
     }

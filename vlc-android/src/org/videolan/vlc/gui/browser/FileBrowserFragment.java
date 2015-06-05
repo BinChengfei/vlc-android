@@ -23,6 +23,7 @@
 
 package org.videolan.vlc.gui.browser;
 
+import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -34,12 +35,10 @@ import android.support.v7.app.AlertDialog;
 import android.support.v7.widget.AppCompatEditText;
 import android.text.InputType;
 import android.text.TextUtils;
-import android.view.Menu;
-import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.widget.Toast;
 
-import org.videolan.libvlc.LibVlcUtil;
+import org.videolan.libvlc.util.AndroidUtil;
 import org.videolan.vlc.MediaDatabase;
 import org.videolan.vlc.MediaWrapper;
 import org.videolan.vlc.R;
@@ -90,22 +89,35 @@ public class FileBrowserFragment extends BaseBrowserFragment {
 
     @Override
     protected void browseRoot() {
+        final Activity context = getActivity();
         mAdapter.updateMediaDirs();
-        String storages[] = AndroidDevices.getMediaDirectories();
-        MediaWrapper directory;
-        for (String mediaDirLocation : storages) {
-            directory = new MediaWrapper(mediaDirLocation);
-            directory.setType(MediaWrapper.TYPE_DIR);
-            if (TextUtils.equals(AndroidDevices.EXTERNAL_PUBLIC_DIRECTORY, mediaDirLocation))
-                directory.setTitle(getString(R.string.internal_memory));
-            mAdapter.addItem(directory, false, false);
-        }
-        mHandler.sendEmptyMessage(BrowserFragmentHandler.MSG_HIDE_LOADING);
-        if (mReadyToDisplay) {
-            updateEmptyView();
-            mAdapter.notifyDataSetChanged();
-            parseSubDirectories();
-        }
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                String storages[] = AndroidDevices.getMediaDirectories();
+                MediaWrapper directory;
+                for (String mediaDirLocation : storages) {
+                    if (!(new File(mediaDirLocation).exists()))
+                        continue;
+                    directory = new MediaWrapper(mediaDirLocation);
+                    directory.setType(MediaWrapper.TYPE_DIR);
+                    if (TextUtils.equals(AndroidDevices.EXTERNAL_PUBLIC_DIRECTORY, mediaDirLocation))
+                        directory.setTitle(getString(R.string.internal_memory));
+                    mAdapter.addItem(directory, false, false);
+                }
+                mHandler.sendEmptyMessage(BrowserFragmentHandler.MSG_HIDE_LOADING);
+                if (mReadyToDisplay) {
+                    context.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            updateEmptyView();
+                            mAdapter.notifyDataSetChanged();
+                            parseSubDirectories();
+                        }
+                    });
+                }
+            }
+        }).start();
     }
 
     public void onStart(){
@@ -141,7 +153,7 @@ public class FileBrowserFragment extends BaseBrowserFragment {
         final Context context = getActivity();
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
         final AppCompatEditText input = new AppCompatEditText(context);
-        if (!LibVlcUtil.isHoneycombOrLater()) {
+        if (!AndroidUtil.isHoneycombOrLater()) {
             input.setTextColor(getResources().getColor(R.color.grey50));
         }
         input.setInputType(InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);

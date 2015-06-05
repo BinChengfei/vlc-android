@@ -32,6 +32,7 @@
     <string name="set_song">Definir como toque de chamada</string>
     <string name="info">Informação</string>
     <string name="confirm_delete">Apagar o ficheiro \'%1$s\'?</string>
+    <string name="confirm_delete_playlist">Eliminar lista de reprodução \'%1$s\'?</string>
     <string name="ringtone_set">O ficheiro \'%1$s\' foi definido com toque de chamada.</string>
     <string name="ringtone_error">Ocorreu um erro ao definir o toque de chamada.</string>
     <string name="pause">Pausa</string>
@@ -90,7 +91,7 @@
     <string name="cover_art">Imagem do álbum</string>
     <string name="shuffle">Não baralhar</string>
     <string name="shuffle_on">Baralhar</string>
-    <string name="repeat">Não rep</string>
+    <string name="repeat">Não repetir</string>
     <string name="repeat_single">Repetir uma</string>
     <string name="repeat_all">Repetir todas</string>
     <string name="previous">Anterior</string>
@@ -278,6 +279,7 @@
     <string name="file_other">Fechar menu de navegação</string>
     <string name="audio_delay">Atraso de áudio</string>
     <string name="spu_delay">Atraso de legendas</string>
+    <string name="sleep_time_not_set">não definido</string>
     <string name="network_shares_discovery">À procura de partilhas de rede...</string>
     <string name="network_empty">Este diretório está vazio</string>
     <string name="network_connection_needed">Nenhuma ligação à rede local</string>

@@ -20,7 +20,7 @@
 
 package org.videolan.vlc;
 
-import android.content.Context;
+import android.net.Uri;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
@@ -29,6 +29,7 @@ import android.util.Log;
 
 import org.videolan.libvlc.LibVLC;
 import org.videolan.libvlc.Media;
+import org.videolan.libvlc.util.AndroidUtil;
 import org.videolan.libvlc.util.Extensions;
 import org.videolan.vlc.gui.audio.AudioBrowserListAdapter;
 import org.videolan.vlc.interfaces.IBrowser;
@@ -41,6 +42,7 @@ import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
 import java.lang.Thread.State;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -64,7 +66,7 @@ public class MediaLibrary {
     private boolean isStopping = false;
     private boolean mRestart = false;
     protected Thread mLoadingThread;
-    private IBrowser mBrowser = null;
+    private WeakReference<IBrowser> mBrowser = null;
 
     public final static HashSet<String> FOLDER_BLACKLIST;
     static {
@@ -92,7 +94,7 @@ public class MediaLibrary {
         mItemListLock = new ReentrantReadWriteLock();
     }
 
-    public void loadMediaItems(Context context, boolean restart) {
+    public void loadMediaItems(boolean restart) {
         if (restart && isWorking()) {
             /* do a clean restart if a scan is ongoing */
             mRestart = true;
@@ -248,8 +250,8 @@ public class MediaLibrary {
             final MediaDatabase mediaDatabase = MediaDatabase.getInstance();
 
             // show progressbar in footer
-            if (mBrowser != null)
-                mBrowser.showProgressBar();
+            if (mBrowser != null && mBrowser.get() != null)
+                mBrowser.get().showProgressBar();
 
             List<File> mediaDirs = mediaDatabase.getMediaDirs();
             if (mediaDirs.size() == 0) {
@@ -353,10 +355,10 @@ public class MediaLibrary {
 
                 // Process the stacked items
                 for (File file : mediaToScan) {
-                    String fileURI = LibVLC.PathToURI(file.getPath());
-                    if (mBrowser != null)
-                        mBrowser.sendTextInfo(file.getName(), count,
-                            mediaToScan.size());
+                    String fileURI = AndroidUtil.PathToURI(file.getPath());
+                    if (mBrowser != null && mBrowser.get() != null)
+                        mBrowser.get().sendTextInfo(file.getName(), count,
+                                mediaToScan.size());
                     count++;
                     if (existingMedias.containsKey(fileURI)) {
                         /**
@@ -373,7 +375,7 @@ public class MediaLibrary {
                     } else {
                         mItemListLock.writeLock().lock();
                         // create new media item
-                        final Media media = new Media(libVlcInstance, fileURI);
+                        final Media media = new Media(libVlcInstance, Uri.parse(fileURI));
                         media.parse();
                         media.release();
                         /* skip files with .mod extension and no duration */
@@ -417,9 +419,9 @@ public class MediaLibrary {
                 }
 
                 // hide progressbar in footer
-                if (mBrowser != null) {
-                    mBrowser.clearTextInfo();
-                    mBrowser.hideProgressBar();
+                if (mBrowser != null && mBrowser.get() != null) {
+                    mBrowser.get().clearTextInfo();
+                    mBrowser.get().hideProgressBar();
                 }
 
                 Util.actionScanStop();
@@ -431,7 +433,7 @@ public class MediaLibrary {
                 }
             }
         }
-    };
+    }
 
     private Handler restartHandler = new RestartHandler(this);
 
@@ -475,6 +477,9 @@ public class MediaLibrary {
     }
 
     public void setBrowser(IBrowser browser) {
-        mBrowser = browser;
+        if (browser != null)
+            mBrowser = new WeakReference<IBrowser>(browser);
+        else
+            mBrowser.clear();
     }
 }

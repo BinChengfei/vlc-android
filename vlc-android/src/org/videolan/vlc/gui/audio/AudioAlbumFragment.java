@@ -44,10 +44,10 @@ import android.widget.AdapterView.AdapterContextMenuInfo;
 import android.widget.ImageView;
 import android.widget.ListView;
 
-import org.videolan.libvlc.LibVlcUtil;
+import org.videolan.libvlc.util.AndroidUtil;
 import org.videolan.vlc.MediaWrapper;
+import org.videolan.vlc.PlaybackServiceController;
 import org.videolan.vlc.R;
-import org.videolan.vlc.audio.AudioServiceController;
 import org.videolan.vlc.util.AndroidDevices;
 
 import java.util.ArrayList;
@@ -56,7 +56,7 @@ public class AudioAlbumFragment extends Fragment implements AdapterView.OnItemCl
 
     public final static String TAG = "VLC/AudioAlbumFragment";
 
-    AudioServiceController mAudioController;
+    PlaybackServiceController mAudioController;
 
     private AlbumAdapter mAdapter;
     private ArrayList<MediaWrapper> mMediaList;
@@ -70,7 +70,7 @@ public class AudioAlbumFragment extends Fragment implements AdapterView.OnItemCl
 
         mAdapter.setContextPopupMenuListener(mContextPopupMenuListener);
 
-        mAudioController = AudioServiceController.getInstance();
+        mAudioController = PlaybackServiceController.getInstance();
         if (savedInstanceState != null)
             setMediaList(savedInstanceState.<MediaWrapper>getParcelableArrayList("list"), savedInstanceState.getString("title"));
     }
@@ -132,7 +132,7 @@ public class AudioAlbumFragment extends Fragment implements AdapterView.OnItemCl
         @Override
         @TargetApi(Build.VERSION_CODES.HONEYCOMB)
         public void onPopupMenu(View anchor, final int position) {
-            if (!LibVlcUtil.isHoneycombOrLater()) {
+            if (!AndroidUtil.isHoneycombOrLater()) {
                 // Call the "classic" context menu
                 anchor.performLongClick();
                 return;

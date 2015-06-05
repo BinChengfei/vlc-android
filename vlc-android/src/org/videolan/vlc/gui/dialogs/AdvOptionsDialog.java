@@ -46,6 +46,7 @@ import android.widget.Spinner;
 import android.widget.TextView;
 
 import org.videolan.libvlc.LibVLC;
+import org.videolan.libvlc.MediaPlayer;
 import org.videolan.vlc.BuildConfig;
 import org.videolan.vlc.R;
 import org.videolan.vlc.VLCApplication;
@@ -56,6 +57,7 @@ import org.videolan.vlc.interfaces.IDelayController;
 import org.videolan.vlc.util.Strings;
 import org.videolan.vlc.util.Util;
 import org.videolan.vlc.util.VLCInstance;
+import org.videolan.vlc.util.WeakHandler;
 
 import java.util.Calendar;
 
@@ -95,21 +97,17 @@ public class AdvOptionsDialog extends DialogFragment implements View.OnClickList
 
     private Spinner mChapters;
     private TextView mChaptersTitle;
-    private static AdvOptionsDialog sInstance;
     private int mTextColor;
 
     private IDelayController mDelayController;
-    private LibVLC mLibVLC;
     public AdvOptionsDialog() {}
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setStyle(DialogFragment.STYLE_NO_FRAME, R.attr.advanced_options_style);
-        sInstance = this;
         if (VLCApplication.sPlayerSleepTime != null && VLCApplication.sPlayerSleepTime.before(Calendar.getInstance()))
             VLCApplication.sPlayerSleepTime = null;
-        mLibVLC = VLCInstance.get();
         if (getArguments() != null && getArguments().containsKey(MODE_KEY))
             mMode = getArguments().getInt(MODE_KEY);
         else
@@ -192,8 +190,9 @@ public class AdvOptionsDialog extends DialogFragment implements View.OnClickList
             root.findViewById(R.id.opt_equalizer).setVisibility(View.GONE);
         mHandler.sendEmptyMessage(TOGGLE_CANCEL);
         mTextColor = mSleepTitle.getCurrentTextColor();
+        final MediaPlayer mediaplayer = VLCInstance.getMainMediaPlayer();
 
-        double speed = mLibVLC.getRate();
+        double speed = mediaplayer.getRate();
         if (speed != 1.0d) {
             speed = 100 * (1 + Math.log(speed) / Math.log(4));
             mSeek.setProgress((int) speed);
@@ -206,7 +205,9 @@ public class AdvOptionsDialog extends DialogFragment implements View.OnClickList
     }
 
     private void initChapterSpinner() {
-        int chaptersCount = mLibVLC.getChapterCount();
+        final MediaPlayer mediaplayer = VLCInstance.getMainMediaPlayer();
+
+        int chaptersCount = mediaplayer.getChapterCount();
         if (chaptersCount <= 1){
             mChapters.setVisibility(View.GONE);
             mChaptersTitle.setVisibility(View.GONE);
@@ -215,17 +216,17 @@ public class AdvOptionsDialog extends DialogFragment implements View.OnClickList
         ArrayAdapter<String> adapter = new ArrayAdapter<String>(getActivity(), android.R.layout.simple_spinner_item);
         String chapterDescription;
         for (int i = 0 ; i < chaptersCount ; ++i) {
-            chapterDescription = mLibVLC.getChapterDescription(i);
+            chapterDescription = mediaplayer.getChapterDescription(i);
             adapter.insert(chapterDescription != null ? chapterDescription : Integer.toString(i), i);
         }
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         mChapters.setAdapter(adapter);
-        mChapters.setSelection(mLibVLC.getChapter());
+        mChapters.setSelection(mediaplayer.getChapter());
         mChapters.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (position != mLibVLC.getChapter())
-                    mLibVLC.setChapter(position);
+                if (position != mediaplayer.getChapter())
+                    mediaplayer.setChapter(position);
             }
             @Override
             public void onNothingSelected(AdapterView<?> parent) {}
@@ -235,9 +236,11 @@ public class AdvOptionsDialog extends DialogFragment implements View.OnClickList
     private SeekBar.OnSeekBarChangeListener mSeekBarListener = new SeekBar.OnSeekBarChangeListener() {
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+            final MediaPlayer mediaplayer = VLCInstance.getMainMediaPlayer();
+
             float rate = (float) Math.pow(4, ((double) progress / (double) 100) - 1);
             mHandler.obtainMessage(SPEED_TEXT, Strings.formatRateString(rate)).sendToTarget();
-            mLibVLC.setRate(rate);
+            mediaplayer.setRate(rate);
         }
 
         public void onStartTrackingTouch(SeekBar seekBar) {}
@@ -247,8 +250,10 @@ public class AdvOptionsDialog extends DialogFragment implements View.OnClickList
     private View.OnClickListener mResetListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
+            final MediaPlayer mediaplayer = VLCInstance.getMainMediaPlayer();
+
             mSeek.setProgress(100);
-            mLibVLC.setRate(1);
+            mediaplayer.setRate(1);
         }
     };
 
@@ -297,7 +302,7 @@ public class AdvOptionsDialog extends DialogFragment implements View.OnClickList
         public void onFocusChange(View v, boolean hasFocus) {
             if (v instanceof TextView)
                 ((TextView) v).setTextColor(v.hasFocus() ?
-                        sInstance.getResources().getColor(R.color.orange500) : mTextColor);
+                        getResources().getColor(R.color.orange500) : mTextColor);
         }
     };
 
@@ -312,8 +317,8 @@ public class AdvOptionsDialog extends DialogFragment implements View.OnClickList
         dismiss();
     }
 
-    public static void setSleep(Context context, Calendar time) {
-        AlarmManager alarmMgr = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+    public static void setSleep(Calendar time) {
+        AlarmManager alarmMgr = (AlarmManager) VLCApplication.getAppContext().getSystemService(Context.ALARM_SERVICE);
         Intent intent = new Intent(VLCApplication.SLEEP_INTENT);
         PendingIntent sleepPendingIntent = PendingIntent.getBroadcast(VLCApplication.getAppContext(), 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
@@ -326,26 +331,35 @@ public class AdvOptionsDialog extends DialogFragment implements View.OnClickList
         VLCApplication.sPlayerSleepTime = time;
     }
 
-    private final static Handler mHandler = new Handler(){
+    private final Handler mHandler = new AdvOptionsDialogHandler(this);
+
+    private static class AdvOptionsDialogHandler extends WeakHandler<AdvOptionsDialog> {
 
         public boolean retry = true;
+
+        public AdvOptionsDialogHandler(AdvOptionsDialog owner) {
+            super(owner);
+        }
 
         @Override
         public void handleMessage(Message msg) {
             String text = null;
+            AdvOptionsDialog owner = getOwner();
+            if (owner == null || owner.isDetached())
+                return;
             switch (msg.what) {
                 case SPEED_TEXT:
                     text = (String) msg.obj;
-                    sInstance.mSpeedTv.setText(text);
+                    owner.mSpeedTv.setText(text);
                     break;
                 case TOGGLE_CANCEL:
-                    sInstance.mSleepCancel.setVisibility(VLCApplication.sPlayerSleepTime == null ? View.GONE : View.VISIBLE);
+                    owner.mSleepCancel.setVisibility(VLCApplication.sPlayerSleepTime == null ? View.GONE : View.VISIBLE);
                 case SLEEP_TEXT:
                     if (VLCApplication.sPlayerSleepTime != null)
-                        text = DateFormat.getTimeFormat(sInstance.mSleepTime.getContext()).format(VLCApplication.sPlayerSleepTime.getTime());
+                        text = DateFormat.getTimeFormat(owner.mSleepTime.getContext()).format(VLCApplication.sPlayerSleepTime.getTime());
                     if (text == null)
-                        text = "none set";
-                    sInstance.mSleepTime.setText(text);
+                        text = VLCApplication.getAppResources().getString(R.string.sleep_time_not_set);
+                    owner.mSleepTime.setText(text);
                     break;
                 case DIALOG_LISTENER:
                     DialogFragment newFragment = (DialogFragment) msg.obj;
@@ -353,7 +367,7 @@ public class AdvOptionsDialog extends DialogFragment implements View.OnClickList
                         newFragment.getDialog().setOnDismissListener(new DialogInterface.OnDismissListener() {
                             @Override
                             public void onDismiss(DialogInterface dialog) {
-                                mHandler.obtainMessage(TOGGLE_CANCEL).sendToTarget();
+                                obtainMessage(TOGGLE_CANCEL).sendToTarget();
                             }
                         });
                     } else if (retry) {
@@ -366,7 +380,7 @@ public class AdvOptionsDialog extends DialogFragment implements View.OnClickList
                     break;
             }
         }
-    };
+    }
 
     @Override
     public void onClick(View v) {
@@ -385,14 +399,16 @@ public class AdvOptionsDialog extends DialogFragment implements View.OnClickList
                 showTimePicker(TimePickerDialogFragment.ACTION_SLEEP);
                 break;
             case R.id.sleep_timer_cancel:
-                setSleep(v.getContext(), null);
+                setSleep(null);
                 mHandler.sendEmptyMessage(TOGGLE_CANCEL);
                 break;
             case R.id.playback_switch_audio:
                 ((VideoPlayerActivity)getActivity()).switchToAudioMode(true);
                 break;
             case R.id.opt_equalizer:
-                ((MainActivity)getActivity()).showSecondaryFragment(SecondaryActivity.EQUALIZER);
+                Intent i = new Intent(getActivity(), SecondaryActivity.class);
+                i.putExtra("fragment", SecondaryActivity.EQUALIZER);
+                startActivity(i);
                 dismiss();
                 break;
         }

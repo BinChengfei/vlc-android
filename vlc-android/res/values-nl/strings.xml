@@ -32,6 +32,7 @@
     <string name="set_song">Als beltoon instellen</string>
     <string name="info">Informatie</string>
     <string name="confirm_delete">Het bestand \'%1$s\' verwijderen?</string>
+    <string name="confirm_delete_playlist">Afspeellijst \'%1$s\' verwijderen?</string>
     <string name="ringtone_set">Het bestand \'%1$s\' werd als beltoon ingesteld.</string>
     <string name="ringtone_error">Er trad een fout op bij het instellen van de beltoon.</string>
     <string name="pause">Pauzeren</string>
@@ -278,6 +279,7 @@
     <string name="file_other">Navigatielade sluiten</string>
     <string name="audio_delay">Audiovertraging</string>
     <string name="spu_delay">Ondertitelvertraging</string>
+    <string name="sleep_time_not_set">niets ingesteld</string>
     <string name="network_shares_discovery">Zoeken naar gedeelde netwerkbestanden...</string>
     <string name="network_empty">Deze map is leeg.</string>
     <string name="network_connection_needed">Geen verbinding met lokaal netwerk.</string>

@@ -27,6 +27,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
+import org.videolan.vlc.VLCApplication;
+
 public class BootupReceiver extends BroadcastReceiver {
     public BootupReceiver() {
     }
@@ -43,7 +45,7 @@ public class BootupReceiver extends BroadcastReceiver {
     }
 
     private void scheduleRecommendationUpdate(Context context) {
-        AlarmManager alarmManager = (AlarmManager)context.getSystemService(
+        AlarmManager alarmManager = (AlarmManager) VLCApplication.getAppContext().getSystemService(
                 Context.ALARM_SERVICE);
         Intent recommendationIntent = new Intent(context,
                 RecommendationsService.class);

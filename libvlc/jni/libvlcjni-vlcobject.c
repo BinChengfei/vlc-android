@@ -18,6 +18,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston MA 02110-1301, USA.
  *****************************************************************************/
 
+#include <assert.h>
 #include <stdlib.h>
 #include <sys/queue.h>
 #include <pthread.h>
@@ -38,12 +39,22 @@ struct vlcjni_object_owner
     event_cb pf_event_cb;
 };
 
-vlcjni_object *
-VLCJniObject_getInstance(JNIEnv *env, jobject thiz)
+static vlcjni_object *
+VLCJniObject_getInstanceInternal(JNIEnv *env, jobject thiz)
 {
     return (vlcjni_object*)(intptr_t) (*env)->GetLongField(env, thiz,
                                                 fields.VLCObject.mInstanceID);
 }
+
+vlcjni_object *
+VLCJniObject_getInstance(JNIEnv *env, jobject thiz)
+{
+    vlcjni_object *p_obj = VLCJniObject_getInstanceInternal(env, thiz);
+    if (!p_obj)
+        throw_IllegalStateException(env, "can't get VLCObject instance");
+    return p_obj;
+}
+
 
 static void
 VLCJniObject_setInstance(JNIEnv *env, jobject thiz, vlcjni_object *p_obj)
@@ -55,77 +66,83 @@ VLCJniObject_setInstance(JNIEnv *env, jobject thiz, vlcjni_object *p_obj)
 
 vlcjni_object *
 VLCJniObject_newFromLibVlc(JNIEnv *env, jobject thiz,
-                           libvlc_instance_t *p_libvlc,
-                           const char **pp_error)
+                           libvlc_instance_t *p_libvlc)
 {
-    vlcjni_object *p_obj;
+    vlcjni_object *p_obj = NULL;
     libvlc_event_manager_t *ev;
+    const char *p_error;
 
-    p_obj = VLCJniObject_getInstance(env, thiz);
-    if (p_obj)
+    if (VLCJniObject_getInstanceInternal(env, thiz))
     {
-        *pp_error = "VLCObject.mInstanceID already exists";
-        return NULL;
+        p_error = "VLCObject.mInstanceID already exists";
+        goto error;
     }
 
     p_obj = calloc(1, sizeof(vlcjni_object));
     if (!p_obj)
     {
-        *pp_error = "vlcjni_object calloc failed";
+        p_error = "vlcjni_object calloc failed";
         goto error;
     }
 
     p_obj->p_owner = calloc(1, sizeof(vlcjni_object_owner));
     if (!p_obj->p_owner)
     {
-        *pp_error = "vlcjni_object_owner calloc failed";
+        p_error = "vlcjni_object_owner calloc failed";
         goto error;
     }
 
-    p_obj->p_libvlc = p_libvlc;
-    libvlc_retain(p_libvlc);
+    if (p_libvlc)
+    {
+        p_obj->p_libvlc = p_libvlc;
+        libvlc_retain(p_libvlc);
 
-    if (fields.VLCObject.getWeakReferenceID)
-    {
-        jobject weakCompat = (*env)->CallObjectMethod(env, thiz,
-                                           fields.VLCObject.getWeakReferenceID);
-        if (weakCompat)
+        if (fields.VLCObject.getWeakReferenceID)
         {
-            p_obj->p_owner->weakCompat = (*env)->NewGlobalRef(env, weakCompat);
-            (*env)->DeleteLocalRef(env, weakCompat);
+            jobject weakCompat = (*env)->CallObjectMethod(env, thiz,
+                                               fields.VLCObject.getWeakReferenceID);
+            if (weakCompat)
+            {
+                p_obj->p_owner->weakCompat = (*env)->NewGlobalRef(env, weakCompat);
+                (*env)->DeleteLocalRef(env, weakCompat);
+            }
+        } else
+            p_obj->p_owner->weak = (*env)->NewWeakGlobalRef(env, thiz);
+        if (!p_obj->p_owner->weak && !p_obj->p_owner->weakCompat)
+        {
+            p_error = "No VLCObject weak reference";
+            goto error;
         }
-    } else
-        p_obj->p_owner->weak = (*env)->NewWeakGlobalRef(env, thiz);
-    if (!p_obj->p_owner->weak && !p_obj->p_owner->weakCompat)
-    {
-        *pp_error = "No VLCObject weak reference";
-        goto error;
     }
 
     VLCJniObject_setInstance(env, thiz, p_obj);
-
-    *pp_error = NULL;
     return p_obj;
 
 error:
-    VLCJniObject_release(env, thiz, p_obj);
+    if (p_obj)
+        VLCJniObject_release(env, thiz, p_obj);
+    throw_IllegalStateException(env, p_error);
     return NULL;
 }
 
 vlcjni_object *
-VLCJniObject_newFromJavaLibVlc(JNIEnv *env, jobject thiz,
-                               jobject libVlc, const char **pp_error)
+VLCJniObject_newFromJavaLibVlc(JNIEnv *env, jobject thiz, jobject libVlc)
 {
-    libvlc_instance_t *p_libvlc = getLibVlcInstance(env, libVlc);
-    if (!p_libvlc)
+    vlcjni_object *p_lib_obj = VLCJniObject_getInstance(env, libVlc);
+    if (!p_lib_obj)
     {
-        if (libVlc)
-            *pp_error = "Can't get mLibVlcInstance from libVlc";
-        else
-            *pp_error = "libVlc is NULL";
+        const char *p_error = libVlc ? "Can't get mInstance from libVlc"
+                                     : "libVlc is NULL";
+        throw_IllegalStateException(env, p_error);
         return NULL;
     }
-    return VLCJniObject_newFromLibVlc(env, thiz, p_libvlc, pp_error);
+    if (p_lib_obj->p_libvlc || !p_lib_obj->u.p_libvlc)
+    {
+        /* The initial LibVLC object shouldn't have a parent libvlc */
+        throw_IllegalStateException(env, "Invalid LibVLC object");
+        return NULL;
+    }
+    return VLCJniObject_newFromLibVlc(env, thiz, p_lib_obj->u.p_libvlc);
 }
 
 void
@@ -156,6 +173,8 @@ VLCJniObject_eventCallback(const libvlc_event_t *ev, void *data)
     vlcjni_object *p_obj = data;
     java_event jevent;
     JNIEnv *env = NULL;
+
+    assert(p_obj->p_libvlc);
 
     jevent.type = -1;
     jevent.arg1 = jevent.arg2 = 0;
@@ -188,6 +207,8 @@ VLCJniObject_attachEvents(vlcjni_object *p_obj,
         || p_obj->p_owner->p_events)
         return;
 
+    assert(p_obj->p_libvlc);
+
     p_obj->p_owner->pf_event_cb = pf_event_cb;
 
     p_obj->p_owner->p_event_manager = p_event_manager;
@@ -207,6 +228,8 @@ Java_org_videolan_libvlc_VLCObject_nativeDetachEvents(JNIEnv *env, jobject thiz)
     if (!p_obj || !p_obj->p_owner->p_event_manager
         || !p_obj->p_owner->p_events)
         return;
+
+    assert(p_obj->p_libvlc);
 
     for(int i = 0; p_obj->p_owner->p_events[i] != -1; ++i)
         libvlc_event_detach(p_obj->p_owner->p_event_manager,

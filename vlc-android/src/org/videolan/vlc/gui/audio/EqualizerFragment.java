@@ -40,12 +40,14 @@ import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.Spinner;
 
 import org.videolan.libvlc.LibVLC;
+import org.videolan.libvlc.MediaPlayer;
 import org.videolan.vlc.R;
 import org.videolan.vlc.VLCApplication;
 import org.videolan.vlc.interfaces.OnEqualizerBarChangeListener;
 import org.videolan.vlc.util.Preferences;
 import org.videolan.vlc.util.Util;
 import org.videolan.vlc.util.VLCInstance;
+import org.videolan.vlc.util.VLCOptions;
 import org.videolan.vlc.widget.EqualizerBar;
 
 public class EqualizerFragment extends Fragment {
@@ -55,7 +57,6 @@ public class EqualizerFragment extends Fragment {
     private Spinner equalizer_presets;
     private SeekBar preamp;
     private LinearLayout bands_layout;
-    LibVLC libVlc = null;
     float[] equalizer = null;
 
     /* All subclasses of Fragment must include a public empty constructor. */
@@ -87,26 +88,25 @@ public class EqualizerFragment extends Fragment {
     }
 
     private void fillViews() {
-        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(VLCApplication.getAppContext());
-        float[] bands = null;
-        String[] presets = null;
-        libVlc = VLCInstance.get();
+        final MediaPlayer mediaplayer = VLCInstance.getMainMediaPlayer();
 
-        bands = libVlc.getBands();
-        presets = libVlc.getPresets();
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(VLCApplication.getAppContext());
+        final float[] bands;
+        final String[] presets;
+
+        bands = mediaplayer.getBands();
+        presets = mediaplayer.getPresets();
         if (equalizer == null)
             equalizer = Preferences.getFloatArray(preferences, "equalizer_values");
         if (equalizer == null)
             equalizer = new float[bands.length + 1];
 
         // on/off
-        button.setChecked(libVlc.getEqualizer() != null);
+        button.setChecked(VLCOptions.getEqualizer() != null);
         button.setOnCheckedChangeListener(new OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                if (libVlc == null)
-                    return;
-                libVlc.setEqualizer(isChecked ? equalizer : null);
+                mediaplayer.setEqualizer(isChecked ? equalizer : null);
             }
         });
 
@@ -162,9 +162,7 @@ public class EqualizerFragment extends Fragment {
     private final OnItemSelectedListener mPresetListener = new OnItemSelectedListener() {
         @Override
         public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-            if (libVlc == null)
-                return;
-            float[] preset = libVlc.getPreset(pos);
+            float[] preset = VLCInstance.getMainMediaPlayer().getPreset(pos);
             if (preset == null)
                 return;
 
@@ -196,8 +194,10 @@ public class EqualizerFragment extends Fragment {
                 return;
 
             equalizer[0] = progress - 20;
-            if (libVlc != null && button.isChecked())
-                libVlc.setEqualizer(equalizer);
+            if (button.isChecked()) {
+                VLCOptions.setEqualizer(equalizer);
+                VLCInstance.getMainMediaPlayer().setEqualizer(equalizer);
+            }
         }
     };
 
@@ -211,8 +211,10 @@ public class EqualizerFragment extends Fragment {
         @Override
         public void onProgressChanged(float value) {
             equalizer[index] = value;
-            if (libVlc != null && button.isChecked())
-                libVlc.setEqualizer(equalizer);
+            if (button.isChecked()) {
+                VLCOptions.setEqualizer(equalizer);
+                VLCInstance.getMainMediaPlayer().setEqualizer(equalizer);
+            }
         }
-    };
+    }
 }

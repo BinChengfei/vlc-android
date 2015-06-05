@@ -24,8 +24,6 @@ import android.support.annotation.Nullable;
 
 import java.util.ArrayList;
 
-import org.videolan.libvlc.LibVLC;
-
 public class MediaWrapperList {
     private static final String TAG = "VLC/MediaWrapperList";
 
@@ -43,7 +41,7 @@ public class MediaWrapperList {
     private ArrayList<MediaWrapper> mInternalList;
     private ArrayList<EventListener> mEventListenerList;
 
-    public MediaWrapperList(LibVLC libVLC) {
+    public MediaWrapperList() {
         mEventListenerList = new ArrayList<EventListener>();
         mInternalList = new ArrayList<MediaWrapper>();
     }

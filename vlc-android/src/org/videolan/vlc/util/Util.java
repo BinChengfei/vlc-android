@@ -38,14 +38,14 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import org.videolan.libvlc.LibVLC;
-import org.videolan.libvlc.LibVlcUtil;
 import org.videolan.libvlc.Media;
+import org.videolan.libvlc.util.AndroidUtil;
 import org.videolan.vlc.MediaLibrary;
 import org.videolan.vlc.MediaWrapper;
+import org.videolan.vlc.PlaybackServiceController;
 import org.videolan.vlc.R;
 import org.videolan.vlc.VLCApplication;
 import org.videolan.vlc.VLCCallbackTask;
-import org.videolan.vlc.audio.AudioServiceController;
 import org.videolan.vlc.gui.video.VideoPlayerActivity;
 
 import java.io.BufferedReader;
@@ -58,6 +58,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Util {
+    public final static String TAG = "VLC/Util";
     private static final AtomicInteger sNextGeneratedId = new AtomicInteger(1);
     public static final String ACTION_SCAN_START = "org.videolan.vlc.gui.ScanStart";
     public static final String ACTION_SCAN_STOP = "org.videolan.vlc.gui.ScanStop";
@@ -118,7 +119,7 @@ public class Util {
     public static MediaWrapper getOrCreateMedia(LibVLC libVLC, String mrl) {
         MediaWrapper mlItem = MediaLibrary.getInstance().getMediaItem(mrl);
         if(mlItem == null) {
-            final Media media = new Media(libVLC, mrl);
+            final Media media = new Media(libVLC, Uri.parse(mrl));
             media.parse(); // FIXME: parse should'nt be done asynchronously
             media.release();
             mlItem = new MediaWrapper(media);
@@ -210,7 +211,7 @@ public class Util {
             VLCCallbackTask task = new VLCCallbackTask(context) {
                 @Override
                 public void run() {
-                    AudioServiceController c = AudioServiceController.getInstance();
+                    PlaybackServiceController c = PlaybackServiceController.getInstance();
                     c.load(media);
                 }
             };
@@ -222,7 +223,7 @@ public class Util {
         VLCCallbackTask task = new VLCCallbackTask(context){
             @Override
             public void run() {
-                AudioServiceController c = AudioServiceController.getInstance();
+                PlaybackServiceController c = PlaybackServiceController.getInstance();
 
                       /* Use the audio player by default. If a video track is
                        * detected, then it will automatically switch to the video
@@ -240,7 +241,7 @@ public class Util {
         VLCCallbackTask task = new VLCCallbackTask(context){
             @Override
             public void run() {
-                AudioServiceController c = AudioServiceController.getInstance();
+                PlaybackServiceController c = PlaybackServiceController.getInstance();
 
                       /* Use the audio player by default. If a video track is
                        * detected, then it will automatically switch to the video
@@ -308,31 +309,37 @@ public class Util {
 
     @TargetApi(android.os.Build.VERSION_CODES.GINGERBREAD)
     public static void commitPreferences(SharedPreferences.Editor editor){
-        if (LibVlcUtil.isGingerbreadOrLater())
+        if (AndroidUtil.isGingerbreadOrLater())
             editor.apply();
         else
             editor.commit();
     }
 
     @TargetApi(Build.VERSION_CODES.HONEYCOMB)
-    public static boolean deleteFile (Context context, String path){
+    public static boolean deleteFile (String path){
         boolean deleted = false;
-        if (path.startsWith("file://"))
-            path = path.substring(5);
-        else
-            return deleted;
-        if (LibVlcUtil.isHoneycombOrLater()){
-            ContentResolver cr = context.getContentResolver();
+        path = Uri.decode(Strings.removeFileProtocole(path));
+        //Delete from Android Medialib, for consistency with device MTP storing and other apps listing content:// media
+        if (AndroidUtil.isHoneycombOrLater()){
+            ContentResolver cr = VLCApplication.getAppContext().getContentResolver();
             String[] selectionArgs = { path };
             deleted = cr.delete(MediaStore.Files.getContentUri("external"),
-                    MediaStore.MediaColumns.DATA + "=?", selectionArgs) > 0;
+                    MediaStore.Files.FileColumns.DATA + "=?", selectionArgs) > 0;
         }
-        if (!deleted){
-            File file = new File(Uri.decode(path));
-            if (file.exists())
-                deleted = file.delete();
-        }
+        File file = new File(path);
+        if (file.exists())
+            deleted |= file.delete();
         return deleted;
+    }
+
+    public static boolean recursiveDelete(Context context, File fileOrDirectory) {
+        if (fileOrDirectory.isDirectory()) {
+            for (File child : fileOrDirectory.listFiles())
+                recursiveDelete(context, child);
+            return fileOrDirectory.delete();
+        } else {
+            return deleteFile (fileOrDirectory.getPath());
+        }
     }
 
     public static boolean close(Closeable closeable) {
@@ -357,7 +364,7 @@ public class Util {
             return false;
         if (path.startsWith(AndroidDevices.EXTERNAL_PUBLIC_DIRECTORY))
             return true;
-        if (LibVlcUtil.isLolliPopOrLater())
+        if (AndroidUtil.isLolliPopOrLater())
             return false;
         File file = new File(path);
         return (file.exists() && file.canWrite());

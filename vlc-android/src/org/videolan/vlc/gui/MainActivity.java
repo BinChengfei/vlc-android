@@ -56,18 +56,19 @@ import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import org.videolan.libvlc.LibVlcUtil;
+import org.videolan.libvlc.util.AndroidUtil;
 import org.videolan.vlc.BuildConfig;
 import org.videolan.vlc.MediaDatabase;
 import org.videolan.vlc.MediaLibrary;
+import org.videolan.vlc.PlaybackService;
 import org.videolan.vlc.R;
-import org.videolan.vlc.audio.AudioService;
+import org.videolan.vlc.VLCApplication;
 import org.videolan.vlc.gui.SidebarAdapter.SidebarEntry;
 import org.videolan.vlc.gui.audio.AudioBrowserFragment;
 import org.videolan.vlc.gui.browser.BaseBrowserFragment;
 import org.videolan.vlc.gui.browser.MediaBrowserFragment;
 import org.videolan.vlc.gui.browser.NetworkBrowserFragment;
-import org.videolan.vlc.gui.browser.StorageBrowserFragment;
+import org.videolan.vlc.gui.network.MRLPanelFragment;
 import org.videolan.vlc.gui.video.VideoGridFragment;
 import org.videolan.vlc.gui.video.VideoListAdapter;
 import org.videolan.vlc.gui.video.VideoPlayerActivity;
@@ -88,6 +89,8 @@ public class MainActivity extends AudioPlayerContainerActivity implements OnItem
     private static final int ACTIVITY_SHOW_PROGRESSBAR = 3;
     private static final int ACTIVITY_HIDE_PROGRESSBAR = 4;
     private static final int ACTIVITY_SHOW_TEXTINFO = 5;
+
+    MediaLibrary mMediaLibrary;
 
     private SidebarAdapter mSidebarAdapter;
     private HackyDrawerLayout mDrawerLayout;
@@ -133,7 +136,8 @@ public class MainActivity extends AudioPlayerContainerActivity implements OnItem
         }
 
         /* Load media items from database and storage */
-        MediaLibrary.getInstance().loadMediaItems();
+        mMediaLibrary = MediaLibrary.getInstance();
+        mMediaLibrary.loadMediaItems();
 
         /*** Start initializing the UI ***/
 
@@ -217,13 +221,13 @@ public class MainActivity extends AudioPlayerContainerActivity implements OnItem
         super.onResume();
 
         /* FIXME: this is used to avoid having MainActivity twice in the backstack */
-        if (getIntent().hasExtra(AudioService.START_FROM_NOTIFICATION))
-            getIntent().removeExtra(AudioService.START_FROM_NOTIFICATION);
+        if (getIntent().hasExtra(PlaybackService.START_FROM_NOTIFICATION))
+            getIntent().removeExtra(PlaybackService.START_FROM_NOTIFICATION);
 
 
         /* Load media items from database and storage */
         if (mScanNeeded)
-            MediaLibrary.getInstance().loadMediaItems();
+            mMediaLibrary.loadMediaItems();
         if (mSlidingPane.getState() == mSlidingPane.STATE_CLOSED)
             mActionBar.hide();
    }
@@ -235,12 +239,7 @@ public class MainActivity extends AudioPlayerContainerActivity implements OnItem
         // Figure out if currently-loaded fragment is a top-level fragment.
         Fragment current = getSupportFragmentManager()
                 .findFragmentById(R.id.fragment_placeholder);
-        boolean found = false;
-        if(current != null) {
-            found = SidebarAdapter.sidebarFragments.contains(current.getTag());
-        } else {
-            found = true;
-        }
+        boolean found = (current == null) || SidebarAdapter.sidebarFragments.contains(current.getTag());
 
         /**
          * Restore the last view.
@@ -254,11 +253,11 @@ public class MainActivity extends AudioPlayerContainerActivity implements OnItem
          * It will try to remove() the currently displayed fragment
          * (i.e. tracks) and replace it with a blank screen. (stuck menu bug)
          */
-        if(current == null || (!current.getTag().equals(mCurrentFragment) && found)) {
+        if (current == null || (!current.getTag().equals(mCurrentFragment) && found)) {
             Log.d(TAG, "Reloading displayed fragment");
-            if(mCurrentFragment == null)
+            if (mCurrentFragment == null)
                 mCurrentFragment = "video";
-            if(!SidebarAdapter.sidebarFragments.contains(mCurrentFragment)) {
+            if (!SidebarAdapter.sidebarFragments.contains(mCurrentFragment)) {
                 Log.d(TAG, "Unknown fragment \"" + mCurrentFragment + "\", resetting to video");
                 mCurrentFragment = "video";
             }
@@ -277,9 +276,9 @@ public class MainActivity extends AudioPlayerContainerActivity implements OnItem
         super.onPause();
 
         /* Check for an ongoing scan that needs to be resumed during onResume */
-        mScanNeeded = MediaLibrary.getInstance().isWorking();
+        mScanNeeded = mMediaLibrary.isWorking();
         /* Stop scanning for files */
-        MediaLibrary.getInstance().stop();
+        mMediaLibrary.stop();
         /* Save the tab status in pref */
         SharedPreferences.Editor editor = mSettings.edit();
         editor.putString("fragment", mCurrentFragment);
@@ -391,9 +390,9 @@ public class MainActivity extends AudioPlayerContainerActivity implements OnItem
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.media_library, menu);
 
-        if (LibVlcUtil.isFroyoOrLater()) {
+        if (AndroidUtil.isFroyoOrLater()) {
             SearchManager searchManager =
-                    (SearchManager) getSystemService(Context.SEARCH_SERVICE);
+                    (SearchManager) VLCApplication.getAppContext().getSystemService(Context.SEARCH_SERVICE);
             mSearchView = (SearchView) MenuItemCompat.getActionView(menu.findItem(R.id.ml_menu_search));
             mSearchView.setSearchableInfo(searchManager.getSearchableInfo(getComponentName()));
             mSearchView.setQueryHint(getString(R.string.search_hint));
@@ -491,17 +490,17 @@ public class MainActivity extends AudioPlayerContainerActivity implements OnItem
                 break;
             // Refresh
             case R.id.ml_menu_refresh:
-                if (!MediaLibrary.getInstance().isWorking()) {
+                if (!mMediaLibrary.isWorking()) {
                     if(current != null && current instanceof IRefreshable)
                         ((IRefreshable) current).refresh();
                     else
-                        MediaLibrary.getInstance().loadMediaItems(this, true);
+                        mMediaLibrary.loadMediaItems(true);
                 }
                 break;
             // Restore last playlist
             case R.id.ml_menu_last_playlist:
                 if (current instanceof AudioBrowserFragment) {
-                    Intent i = new Intent(AudioService.ACTION_REMOTE_LAST_PLAYLIST);
+                    Intent i = new Intent(PlaybackService.ACTION_REMOTE_LAST_PLAYLIST);
                     sendBroadcast(i);
                 } else if (current instanceof VideoGridFragment) {
                     String location = Uri.decode(mSettings.getString(PreferencesActivity.VIDEO_LAST, null));
@@ -538,7 +537,7 @@ public class MainActivity extends AudioPlayerContainerActivity implements OnItem
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == ACTIVITY_RESULT_PREFERENCES) {
             if (resultCode == PreferencesActivity.RESULT_RESCAN)
-                MediaLibrary.getInstance().loadMediaItems(this, true);
+                mMediaLibrary.loadMediaItems(true);
             else if (resultCode == PreferencesActivity.RESULT_RESTART) {
                 Intent intent = getIntent();
                 finish();
@@ -584,7 +583,7 @@ public class MainActivity extends AudioPlayerContainerActivity implements OnItem
         View playPause = findViewById(R.id.header_play_pause);
 
         if (!idIsEmpty) {
-            View list = null;
+            View list;
             int pane = mSlidingPane.getState();
 
             if (parentView == null)
@@ -647,7 +646,7 @@ public class MainActivity extends AudioPlayerContainerActivity implements OnItem
             v.setNextFocusDownId(mActionBarIconId);
             v.setNextFocusLeftId(mActionBarIconId);
             v.setNextFocusRightId(R.id.ml_menu_search);
-            if (LibVlcUtil.isHoneycombOrLater())
+            if (AndroidUtil.isHoneycombOrLater())
                 v.setNextFocusForwardId(mActionBarIconId);
             if (findViewById(R.id.ml_menu_search) != null)
                 findViewById(R.id.ml_menu_search).setNextFocusLeftId(mActionBarIconId);
@@ -710,10 +709,10 @@ public class MainActivity extends AudioPlayerContainerActivity implements OnItem
                     break;
             }
         }
-    };
+    }
 
     public void hideKeyboard(){
-        ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(
+        ((InputMethodManager) VLCApplication.getAppContext().getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(
                 getWindow().getDecorView().getRootView().getWindowToken(), 0);
     }
 

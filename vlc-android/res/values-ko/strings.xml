@@ -31,6 +31,7 @@
     <string name="set_song">벨소리로 설정</string>
     <string name="info">정보</string>
     <string name="confirm_delete">\'%1$s\' 파일을 삭제할까요?</string>
+    <string name="confirm_delete_playlist">재생목록 \'%1$s\' 을 삭제할까요?</string>
     <string name="ringtone_set">\'%1$s\' 파일을 벨소리로 설정했습니다.</string>
     <string name="ringtone_error">Ringtone 설정 중 오류가 발생했습니다.</string>
     <string name="pause">일시중지</string>
@@ -271,6 +272,7 @@
     <string name="file_other">탐색메뉴 닫기</string>
     <string name="audio_delay">음성 지연</string>
     <string name="spu_delay">자막 지연</string>
+    <string name="sleep_time_not_set">아무 설정 않음</string>
     <string name="network_shares_discovery">네트워크 공유 검색 중...</string>
     <string name="network_empty">폴더가 비었습니다.</string>
     <string name="network_connection_needed">로컬 네트워크에 접속 없음.</string>

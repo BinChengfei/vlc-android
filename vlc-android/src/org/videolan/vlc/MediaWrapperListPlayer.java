@@ -20,29 +20,33 @@
 
 package org.videolan.vlc;
 
+import android.content.Context;
+import android.net.Uri;
+
 import java.util.ArrayList;
 
-import org.videolan.libvlc.LibVLC;
 import org.videolan.libvlc.Media;
-
+import org.videolan.libvlc.MediaList;
+import org.videolan.libvlc.MediaPlayer;
+import org.videolan.vlc.util.VLCInstance;
+import org.videolan.vlc.util.VLCOptions;
 
 public class MediaWrapperListPlayer {
 
     private int mPlayerIndex = 0;
-    final private LibVLC mLibVLC;
+
     final private MediaWrapperList mMediaList;
 
     private static MediaWrapperListPlayer sMediaWrapperListPlayer = null;
 
-    public static synchronized MediaWrapperListPlayer getInstance(LibVLC libVLC) {
+    public static synchronized MediaWrapperListPlayer getInstance() {
         if (sMediaWrapperListPlayer == null)
-            sMediaWrapperListPlayer = new MediaWrapperListPlayer(libVLC);
+            sMediaWrapperListPlayer = new MediaWrapperListPlayer();
         return sMediaWrapperListPlayer;
     }
 
-    public MediaWrapperListPlayer(LibVLC libVLC) {
-        mLibVLC = libVLC;
-        mMediaList = new MediaWrapperList(libVLC);
+    public MediaWrapperListPlayer() {
+        mMediaList = new MediaWrapperList();
     }
 
     public MediaWrapperList getMediaList() {
@@ -55,14 +59,22 @@ public class MediaWrapperListPlayer {
      * @param position The index of the media
      * @param flags LibVLC.MEDIA_* flags
      */
-    public void playIndex(int position, int flags) {
+    public void playIndex(Context context, int position, int flags) {
         String mrl = mMediaList.getMRL(position);
         if (mrl == null)
             return;
-        final MediaWrapper media = mMediaList.getMedia(position);
-        String[] options = mLibVLC.getMediaOptions(flags | (media != null ? media.getFlags() : 0));
+        final MediaWrapper mw = mMediaList.getMedia(position);
+        String[] options = VLCOptions.getMediaOptions(context, flags | (mw != null ? mw.getFlags() : 0));
         mPlayerIndex = position;
-        mLibVLC.playMRL(mrl, options);
+
+        final Media media = new Media(VLCInstance.get(), mw.getUri());
+        for (String option : options)
+            media.addOption(option);
+        VLCInstance.getMainMediaPlayer().setMedia(media);
+        media.release();
+        VLCInstance.getMainMediaPlayer().setEqualizer(VLCOptions.getEqualizer());
+        VLCInstance.getMainMediaPlayer().setVideoTitleDisplay(MediaPlayer.Position.Disable, 0);
+        VLCInstance.getMainMediaPlayer().play();
     }
 
     /**
@@ -71,43 +83,38 @@ public class MediaWrapperListPlayer {
      * @param position The index of the media
      * @param paused start the media paused
      */
-    public void playIndex(int position, boolean paused) {
-        playIndex(position, paused ? LibVLC.MEDIA_PAUSED : 0);
+    public void playIndex(Context context, int position, boolean paused) {
+        playIndex(context, position, paused ? VLCOptions.MEDIA_PAUSED : 0);
     }
 
-    public void playIndex(int position) {
-        playIndex(position, 0);
+    public void playIndex(Context context, int position) {
+        playIndex(context, position, 0);
     }
-
-    /**
-     * Expand and continue playing the current media.
-     *
-     * @return the index of the media was expanded, and -1 if no media was expanded
-     */
-   public int expandAndPlay() {
-       int r = expand();
-       if(r == 0)
-           playIndex(mPlayerIndex);
-       return r;
-   }
 
    /**
     * Expand the current media.
     * @return the index of the media was expanded, and -1 if no media was expanded
     */
-   public int expand() {
-       ArrayList<String> children = new ArrayList<String>();
-       int ret = mLibVLC.expandMedia(children);
-       if(ret == 0) {
-           mMediaList.remove(mPlayerIndex);
-           for(String mrl : children) {
-               final Media media = new Media(mLibVLC, mrl);
-               media.parse(); // FIXME: parse should be done asynchronously
-               media.release();
-               mMediaList.insert(mPlayerIndex, new MediaWrapper(media));
-           }
-       }
-       return ret;
+    public int expand() {
+        final Media media = VLCInstance.getMainMediaPlayer().getMedia();
+        final MediaList ml = media.subItems();
+        media.release();
+        int ret;
+
+        if (ml.getCount() > 0) {
+            mMediaList.remove(mPlayerIndex);
+            for (int i = 0; i < ml.getCount(); ++i) {
+                final Media child = ml.getMediaAt(i);
+                child.parse();
+                child.release();
+                mMediaList.insert(mPlayerIndex, new MediaWrapper(child));
+            }
+            ret = 0;
+        } else {
+            ret = -1;
+        }
+        ml.release();
+        return ret;
    }
 
    public int expand(int index) {

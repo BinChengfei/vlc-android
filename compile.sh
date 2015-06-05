@@ -95,7 +95,7 @@ if [ ! -d "gradle/wrapper" ]; then
     mkdir -p gradle
     mv gradle-${GRADLE_VERSION}/gradle/wrapper/ gradle
     mv gradle-${GRADLE_VERSION}/gradlew .
-    chmod +x gradlew
+    chmod a+x gradlew
     rm -rf gradle-${GRADLE_VERSION}-all.zip gradle-${GRADLE_VERSION}
 fi
 
@@ -131,7 +131,7 @@ fi
 # Fetch VLC source #
 ####################
 
-TESTED_HASH=0c8ef54
+TESTED_HASH=ecfd0b7
 if [ ! -d "vlc" ]; then
     echo "VLC source not found, cloning"
     git clone git://git.videolan.org/vlc.git vlc
