@@ -23,7 +23,9 @@
 
 package org.videolan.vlc.gui.browser;
 
+import android.net.Uri;
 import android.os.Bundle;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentTransaction;
 import android.text.TextUtils;
@@ -32,7 +34,6 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 
 import org.videolan.libvlc.Media;
 import org.videolan.vlc.MediaWrapper;
@@ -40,12 +41,14 @@ import org.videolan.vlc.R;
 import org.videolan.vlc.util.AndroidDevices;
 import org.videolan.vlc.util.CustomDirectories;
 
+import java.io.File;
+
 public class StorageBrowserFragment extends FileBrowserFragment implements View.OnClickListener {
 
     public static final String KEY_IN_MEDIALIB = "key_in_medialib";
 
     boolean mScannedDirectory = false;
-    ImageView mAddDirectoryFAB;
+    FloatingActionButton mAddDirectoryFAB;
 
     public StorageBrowserFragment(){
         mHandler = new BrowserFragmentHandler(this);
@@ -72,7 +75,7 @@ public class StorageBrowserFragment extends FileBrowserFragment implements View.
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View v = super.onCreateView(inflater, container, savedInstanceState);
         if (mRoot) {
-            mAddDirectoryFAB = (ImageView) v.findViewById(R.id.fab_add_custom_dir);
+            mAddDirectoryFAB = (FloatingActionButton) v.findViewById(R.id.fab_add_custom_dir);
             mAddDirectoryFAB.setVisibility(View.VISIBLE);
             mAddDirectoryFAB.setOnClickListener(this);
         }
@@ -90,7 +93,7 @@ public class StorageBrowserFragment extends FileBrowserFragment implements View.
         String storages[] = AndroidDevices.getMediaDirectories();
         BaseBrowserAdapter.Storage storage;
         for (String mediaDirLocation : storages) {
-            storage = new BaseBrowserAdapter.Storage(mediaDirLocation);
+            storage = new BaseBrowserAdapter.Storage(Uri.fromFile(new File(mediaDirLocation)));
             if (TextUtils.equals(AndroidDevices.EXTERNAL_PUBLIC_DIRECTORY, mediaDirLocation))
                 storage.setName(getString(R.string.internal_memory));
             mAdapter.addItem(storage, false, false);
@@ -140,7 +143,7 @@ public class StorageBrowserFragment extends FileBrowserFragment implements View.
     protected void setContextMenu(MenuInflater inflater, Menu menu, int position) {
         if (mRoot) {
             BaseBrowserAdapter.Storage storage = (BaseBrowserAdapter.Storage) mAdapter.getItem(position);
-            boolean isCustom = CustomDirectories.contains(storage.getPath());
+            boolean isCustom = CustomDirectories.contains(storage.getUri().getPath());
             if (isCustom)
                 inflater.inflate(R.menu.directory_custom_dir, menu);
         } else

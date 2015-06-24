@@ -105,10 +105,6 @@ public class PlaybackService extends Service {
     public static final String ACTION_WIDGET_UPDATE_COVER = "org.videolan.vlc.widget.UPDATE_COVER";
     public static final String ACTION_WIDGET_UPDATE_POSITION = "org.videolan.vlc.widget.UPDATE_POSITION";
 
-    public static final int CURRENT_ITEM = 1;
-    public static final int PREVIOUS_ITEM = 2;
-    public static final int NEXT_ITEM = 3;
-
     private MediaWrapperListPlayer mMediaListPlayer;
     private boolean mForceAudio = false;
     private HashMap<IPlaybackServiceCallback, Integer> mCallback;
@@ -168,6 +164,9 @@ public class PlaybackService extends Service {
             stopSelf();
             return;
         }
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        mDetectHeadset = prefs.getBoolean("enable_headset_detection", true);
 
         mMediaListPlayer = MediaWrapperListPlayer.getInstance();
 
@@ -476,20 +475,22 @@ public class PlaybackService extends Service {
                     service.executeUpdate();
                     service.executeUpdateProgress();
 
-                    String location = service.mMediaListPlayer.getMediaList().getMRL(service.mCurrentIndex);
-                    long length = service.MediaPlayer().getLength();
-                    MediaDatabase dbManager = MediaDatabase.getInstance();
-                    MediaWrapper m = dbManager.getMedia(location);
-                    /**
-                     * 1) There is a media to update
-                     * 2) It has a length of 0
-                     * (dynamic track loading - most notably the OGG container)
-                     * 3) We were able to get a length even after parsing
-                     * (don't want to replace a 0 with a 0)
-                     */
-                    if(m != null && m.getLength() == 0 && length > 0) {
-                        dbManager.updateMedia(location,
-                                MediaDatabase.mediaColumn.MEDIA_LENGTH, length);
+                    final MediaWrapper mw = service.mMediaListPlayer.getMediaList().getMedia(service.mCurrentIndex);
+                    if (mw != null) {
+                        long length = service.MediaPlayer().getLength();
+                        MediaDatabase dbManager = MediaDatabase.getInstance();
+                        MediaWrapper m = dbManager.getMedia(mw.getUri());
+                        /**
+                         * 1) There is a media to update
+                         * 2) It has a length of 0
+                         * (dynamic track loading - most notably the OGG container)
+                         * 3) We were able to get a length even after parsing
+                         * (don't want to replace a 0 with a 0)
+                         */
+                        if (m != null && m.getLength() == 0 && length > 0) {
+                            dbManager.updateMedia(mw.getUri(),
+                                    MediaDatabase.mediaColumn.MEDIA_LENGTH, length);
+                        }
                     }
 
                     service.changeAudioFocus(true);
@@ -621,7 +622,7 @@ public class PlaybackService extends Service {
     private void handleVout() {
         if (mForceAudio || MediaPlayer().getVideoTracksCount() <= 0 || !hasCurrentMedia())
             return;
-        final MediaWrapper mw = mMediaListPlayer.getMediaList().getMedia(mCurrentIndex);
+        final MediaWrapper mw = getCurrentMedia();
         if (mw == null)
             return;
 
@@ -663,7 +664,7 @@ public class PlaybackService extends Service {
     }
 
     private void executeOnMediaPlayedAdded() {
-        final MediaWrapper media = mMediaListPlayer.getMediaList().getMedia(mCurrentIndex);
+        final MediaWrapper media = getCurrentMedia();
         for (IPlaybackServiceCallback callback : mCallback.keySet()) {
             try {
                 callback.onMediaPlayedAdded(media, 0);
@@ -859,6 +860,7 @@ public class PlaybackService extends Service {
     }
 
     private void stop() {
+        savePosition();
         MediaPlayer().stop();
         mEventHandler.removeHandler(mVlcEventHandler);
         mMediaListPlayer.getMediaList().removeEventListener(mListEventListener);
@@ -1113,6 +1115,8 @@ public class PlaybackService extends Service {
     private synchronized void loadLastPlaylist() {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         String currentMedia = prefs.getString("current_media", "");
+        if (currentMedia.equals(""))
+            return;
         String[] locations = prefs.getString("media_list", "").split(" ");
 
         List<String> mediaPathList = new ArrayList<String>(locations.length);
@@ -1121,12 +1125,20 @@ public class PlaybackService extends Service {
 
         mShuffling = prefs.getBoolean("shuffling", false);
         mRepeating = RepeatType.values()[prefs.getInt("repeating", RepeatType.None.ordinal())];
-        int position = Math.max(0, mediaPathList.indexOf(currentMedia));
+        int position = prefs.getInt("position_in_list", Math.max(0, mediaPathList.indexOf(currentMedia)));
+        long time = prefs.getLong("position_in_song", -1);
         // load playlist
         try {
             mInterface.loadLocations(mediaPathList, position);
+            if (time > 0)
+                mInterface.setTime(time);
         } catch (RemoteException e) {
             e.printStackTrace();
+        } finally {
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putInt("position_in_list", 0);
+            editor.putLong("position_in_song", 0);
+            Util.commitPreferences(editor);
         }
     }
 
@@ -1148,6 +1160,13 @@ public class PlaybackService extends Service {
         Util.commitPreferences(editor);
     }
 
+    private synchronized void savePosition(){
+        SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(this).edit();
+        editor.putInt("position_in_list", mCurrentIndex);
+        editor.putLong("position_in_song", MediaPlayer().getTime());
+        Util.commitPreferences(editor);
+    }
+
     private boolean validateLocation(String location)
     {
         /* Check if the MRL contains a scheme */
@@ -1159,6 +1178,8 @@ public class PlaybackService extends Service {
             try {
                 f = new File(new URI(location));
             } catch (URISyntaxException e) {
+                return false;
+            } catch (IllegalArgumentException e) {
                 return false;
             }
             if (!f.isFile())
@@ -1346,7 +1367,7 @@ public class PlaybackService extends Service {
 
             for (int i = 0; i < mediaPathList.size(); i++) {
                 String location = mediaPathList.get(i);
-                MediaWrapper mediaWrapper = db.getMedia(location);
+                MediaWrapper mediaWrapper = db.getMedia(Uri.parse(location));
                 if (mediaWrapper == null) {
                     if (!validateLocation(location)) {
                         Log.w(TAG, "Invalid location " + location);

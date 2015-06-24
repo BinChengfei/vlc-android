@@ -21,6 +21,7 @@
 package org.videolan.vlc.util;
 
 import android.annotation.TargetApi;
+import android.app.ProgressDialog;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -31,21 +32,21 @@ import android.content.res.TypedArray;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.MediaStore;
+import android.support.design.widget.Snackbar;
 import android.text.TextUtils.TruncateAt;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
+import android.view.View;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import org.videolan.libvlc.LibVLC;
 import org.videolan.libvlc.Media;
 import org.videolan.libvlc.util.AndroidUtil;
 import org.videolan.vlc.MediaLibrary;
 import org.videolan.vlc.MediaWrapper;
-import org.videolan.vlc.PlaybackServiceController;
+import org.videolan.vlc.PlaybackServiceClient;
 import org.videolan.vlc.R;
 import org.videolan.vlc.VLCApplication;
-import org.videolan.vlc.VLCCallbackTask;
 import org.videolan.vlc.gui.video.VideoPlayerActivity;
 
 import java.io.BufferedReader;
@@ -64,8 +65,13 @@ public class Util {
     public static final String ACTION_SCAN_STOP = "org.videolan.vlc.gui.ScanStop";
 
     /** Print an on-screen message to alert the user */
-    public static void toaster(Context context, int stringId) {
-        Toast.makeText(context, stringId, Toast.LENGTH_SHORT).show();
+    public static void snacker(View view, int stringId) {
+        Snackbar.make(view, stringId, Snackbar.LENGTH_SHORT).show();
+    }
+
+    /** Print an on-screen message to alert the user */
+    public static void snacker(View view, String message) {
+        Snackbar.make(view, message, Snackbar.LENGTH_SHORT).show();
     }
 
     public static int convertPxToDp(int px) {
@@ -200,59 +206,44 @@ public class Util {
         VLCApplication.getAppContext().sendBroadcast(intent);
     }
 
+    private static class DialogCallback implements PlaybackServiceClient.ResultCallback<Void> {
+        private final ProgressDialog dialog;
 
-    public static void openMedia(Context context, final MediaWrapper media){
-        if (media == null)
-            return;
-        String mrl = media.getLocation();
-        if (media.getType() == MediaWrapper.TYPE_VIDEO)
-            VideoPlayerActivity.start(context, mrl, media.getTitle());
-        else if (media.getType() == MediaWrapper.TYPE_AUDIO) {
-            VLCCallbackTask task = new VLCCallbackTask(context) {
-                @Override
-                public void run() {
-                    PlaybackServiceController c = PlaybackServiceController.getInstance();
-                    c.load(media);
-                }
-            };
-            task.execute();
+        private DialogCallback(Context context) {
+            this.dialog = ProgressDialog.show(
+                    context,
+                    context.getApplicationContext().getString(R.string.loading) + "…",
+                    context.getApplicationContext().getString(R.string.please_wait), true);
+            dialog.setCancelable(true);
+        }
+
+        @Override
+        public void onResult(PlaybackServiceClient client, Void result) {
+            dialog.dismiss();
+        }
+
+        @Override
+        public void onError(PlaybackServiceClient client) {
+            dialog.dismiss();
         }
     }
 
-    public static  void openList(Context context, final List<MediaWrapper> list, final int position){
-        VLCCallbackTask task = new VLCCallbackTask(context){
-            @Override
-            public void run() {
-                PlaybackServiceController c = PlaybackServiceController.getInstance();
-
-                      /* Use the audio player by default. If a video track is
-                       * detected, then it will automatically switch to the video
-                       * player. This allows us to support more types of streams
-                       * (for example, RTSP and TS streaming) where ES can be
-                       * dynamically adapted rather than a simple scan.
-                       */
-                c.load(list, position);
-            }
-        };
-        task.execute();
+    public static void openMedia(final Context context, final MediaWrapper media){
+        if (media == null)
+            return;
+        if (media.getType() == MediaWrapper.TYPE_VIDEO)
+            VideoPlayerActivity.start(context, media.getUri(), media.getTitle());
+        else if (media.getType() == MediaWrapper.TYPE_AUDIO) {
+            PlaybackServiceClient.load(context, new DialogCallback(context), media);
+        }
     }
 
-    public static void openStream(Context context, final String uri){
-        VLCCallbackTask task = new VLCCallbackTask(context){
-            @Override
-            public void run() {
-                PlaybackServiceController c = PlaybackServiceController.getInstance();
+    public static void openList(final Context context, final List<MediaWrapper> list, final int position){
+        PlaybackServiceClient.load(context, new DialogCallback(context), list, position);
+    }
 
-                      /* Use the audio player by default. If a video track is
-                       * detected, then it will automatically switch to the video
-                       * player. This allows us to support more types of streams
-                       * (for example, RTSP and TS streaming) where ES can be
-                       * dynamically adapted rather than a simple scan.
-                       */
-                c.loadLocation(uri);
-            }
-        };
-        task.execute();
+    public static void openStream(final Context context, final String uri){
+        PlaybackServiceClient.loadLocation(context, new DialogCallback(context), uri);
     }
 
     private static String getMediaString(Context ctx, int id) {

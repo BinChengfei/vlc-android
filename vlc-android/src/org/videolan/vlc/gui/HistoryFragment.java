@@ -36,7 +36,7 @@ import android.widget.AdapterView.AdapterContextMenuInfo;
 import android.widget.ListView;
 
 import org.videolan.libvlc.util.AndroidUtil;
-import org.videolan.vlc.PlaybackServiceController;
+import org.videolan.vlc.PlaybackServiceClient;
 import org.videolan.vlc.R;
 import org.videolan.vlc.gui.browser.MediaBrowserFragment;
 import org.videolan.vlc.interfaces.IRefreshable;
@@ -107,12 +107,6 @@ public class HistoryFragment extends MediaBrowserFragment implements IRefreshabl
     }
 
     @Override
-    public void onDestroy() {
-        mHistoryAdapter.release();
-        super.onDestroy();
-    }
-
-    @Override
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo) {
         MenuInflater menuInflater = getActivity().getMenuInflater();
         menuInflater.inflate(R.menu.history_view, menu);
@@ -124,9 +118,7 @@ public class HistoryFragment extends MediaBrowserFragment implements IRefreshabl
     }
 
     private void playListIndex(int position) {
-        PlaybackServiceController audioController = PlaybackServiceController.getInstance();
-
-        audioController.playIndex(position);
+        PlaybackServiceClient.playIndex(getActivity(), null, position);
     }
 
     @Override

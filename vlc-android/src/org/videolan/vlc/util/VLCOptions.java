@@ -25,6 +25,7 @@ import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
 import android.util.Log;
 
+import org.videolan.libvlc.Media;
 import org.videolan.libvlc.util.VLCUtil;
 import org.videolan.libvlc.util.AndroidUtil;
 import org.videolan.libvlc.util.HWDecoderUtil;
@@ -39,10 +40,6 @@ public class VLCOptions {
 
     public static final int AOUT_AUDIOTRACK = 0;
     public static final int AOUT_OPENSLES = 1;
-
-    public static final int VOUT_ANDROID_SURFACE = 0;
-    public static final int VOUT_OPEGLES2 = 1;
-    public static final int VOUT_ANDROID_WINDOW = 2;
 
     public static final int HW_ACCELERATION_AUTOMATIC = -1;
     public static final int HW_ACCELERATION_DISABLED = 0;
@@ -79,13 +76,6 @@ public class VLCOptions {
         }
         aout = getAout(aout);
 
-        int vout = -1;
-        try {
-            vout = Integer.parseInt(pref.getString("vout", "-1"));
-        } catch (NumberFormatException nfe) {
-        }
-        vout = getVout(vout);
-
         int deblocking = -1;
         try {
             deblocking = getDeblocking(Integer.parseInt(pref.getString("deblocking", "-1")));
@@ -113,9 +103,8 @@ public class VLCOptions {
         if (networkCaching > 0)
             options.add("--network-caching=" + networkCaching);
         options.add(aout == AOUT_OPENSLES ? "--aout=opensles" : (aout == AOUT_AUDIOTRACK ? "--aout=android_audiotrack" : "--aout=dummy"));
-        options.add(vout == VOUT_ANDROID_WINDOW ? "--vout=androidwindow" : (vout == VOUT_OPEGLES2 ? "--vout=gles2" : "--vout=androidsurface"));
-        options.add("--androidsurface-chroma");
-        options.add(chroma.indexOf(0) == 0 ? chroma : "RV32");
+        options.add("--androidwindow-chroma");
+        options.add(chroma.indexOf(0) != 0 ? chroma : "RV32");
 
         if (sHdmiAudioEnabled) {
             options.add("--spdif");
@@ -132,16 +121,6 @@ public class VLCOptions {
             return hwaout == HWDecoderUtil.AudioOutput.OPENSLES ? AOUT_OPENSLES : AOUT_AUDIOTRACK;
 
         return aout == AOUT_OPENSLES ? AOUT_OPENSLES : AOUT_AUDIOTRACK;
-    }
-
-    private static int getVout(int vout) {
-        if (vout < 0 || vout > VOUT_ANDROID_WINDOW)
-            vout = VOUT_ANDROID_SURFACE;
-
-        if (vout == VOUT_ANDROID_SURFACE && HWDecoderUtil.HAS_WINDOW_VOUT)
-            return VOUT_ANDROID_WINDOW;
-        else
-            return vout;
     }
 
     private static int getDeblocking(int deblocking) {
@@ -189,42 +168,11 @@ public class VLCOptions {
         }
     }
 
-    private static String getHardwareAccelerationOption(HWDecoderUtil.Decoder decoder, int hardwareAcceleration) {
-        if (hardwareAcceleration == HW_ACCELERATION_DISABLED) {
-            Log.d(TAG, "HWDec disabled: by user");
-            return "all";
-        } else {
-            // OMX, MEDIACODEC or ALL
-            String codecList;
-            if (decoder == HWDecoderUtil.Decoder.ALL)
-                codecList = DEFAULT_CODEC_LIST;
-            else {
-                final StringBuilder sb = new StringBuilder();
-                if (decoder == HWDecoderUtil.Decoder.MEDIACODEC)
-                    sb.append("mediacodec_ndk,mediacodec_jni,");
-                else if (decoder == HWDecoderUtil.Decoder.OMX)
-                    sb.append("iomx,");
-                sb.append("all");
-                codecList = sb.toString();
-            }
-            Log.d(TAG, "HWDec enabled: device working with: " + codecList);
-            return codecList;
-        }
-    }
-
-    public static String[] getMediaOptions(Context context, boolean noHardwareAcceleration, boolean noVideo) {
-        final int flag = (noHardwareAcceleration ? MEDIA_NO_HWACCEL : 0) |
-                (noVideo ? MEDIA_NO_VIDEO : 0);
-        return getMediaOptions(context, flag);
-    }
-
-    public static String[] getMediaOptions(Context context, int flags) {
+    public static void setMediaOptions(Media media, Context context, int flags) {
         boolean noHardwareAcceleration = (flags & MEDIA_NO_HWACCEL) != 0;
         boolean noVideo = (flags & MEDIA_NO_VIDEO) != 0;
         final boolean paused = (flags & MEDIA_PAUSED) != 0;
         int hardwareAcceleration = HW_ACCELERATION_DISABLED;
-
-        final HWDecoderUtil.Decoder decoder = HWDecoderUtil.getDecoderFromDevice();
 
         if (!noHardwareAcceleration) {
             try {
@@ -233,34 +181,20 @@ public class VLCOptions {
             } catch (NumberFormatException nfe) {
             }
         }
-        hardwareAcceleration = getHardwareAcceleration(decoder, hardwareAcceleration);
-
-        ArrayList<String> options = new ArrayList<String>();
-
-        if (hardwareAcceleration != HW_ACCELERATION_DISABLED) {
-            /*
-             * Set higher caching values if using iomx decoding, since some omx
-             * decoders have a very high latency, and if the preroll data isn't
-             * enough to make the decoder output a frame, the playback timing gets
-             * started too soon, and every decoded frame appears to be too late.
-             * On Nexus One, the decoder latency seems to be 25 input packets
-             * for 320x170 H.264, a few packets less on higher resolutions.
-             * On Nexus S, the decoder latency seems to be about 7 packets.
-             */
-            options.add(":file-caching=1500");
-            options.add(":network-caching=1500");
-            if (hardwareAcceleration != HW_ACCELERATION_FULL) {
-                options.add(":no-mediacodec-dr");
-                options.add(":no-omxil-dr");
+        if (hardwareAcceleration == HW_ACCELERATION_DISABLED)
+            media.setHWDecoderEnabled(false, false);
+        else if (hardwareAcceleration == HW_ACCELERATION_FULL || hardwareAcceleration == HW_ACCELERATION_DECODING) {
+            media.setHWDecoderEnabled(true, true);
+            if (hardwareAcceleration == HW_ACCELERATION_DECODING) {
+                media.addOption(":no-mediacodec-dr");
+                media.addOption(":no-omxil-dr");
             }
-        }
-        options.add(":codec=" + getHardwareAccelerationOption(decoder, hardwareAcceleration));
+        } /* else automatic: use default options */
 
         if (noVideo)
-            options.add(":no-video");
+            media.addOption(":no-video");
         if (paused)
-            options.add(":start-paused");
-        return options.toArray(new String[options.size()]);
+            media.addOption(":start-paused");
     }
 
     // Equalizer

@@ -21,7 +21,6 @@
 package org.videolan.vlc.gui;
 
 import android.app.Dialog;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -48,13 +47,10 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.Toast;
 
 import org.videolan.libvlc.util.HWDecoderUtil;
-import org.videolan.libvlc.LibVLC;
 import org.videolan.vlc.MediaDatabase;
-import org.videolan.vlc.PlaybackService;
-import org.videolan.vlc.PlaybackServiceController;
+import org.videolan.vlc.PlaybackServiceClient;
 import org.videolan.vlc.R;
 import org.videolan.vlc.gui.audio.AudioUtil;
 import org.videolan.vlc.util.AndroidDevices;
@@ -85,6 +81,7 @@ public class PreferencesActivity extends PreferenceActivity implements OnSharedP
         applyTheme();
 
         super.onCreate(savedInstanceState);
+
         addPreferencesFromResource(R.xml.preferences);
 
         if (!AndroidDevices.hasTsp()){
@@ -126,7 +123,7 @@ public class PreferencesActivity extends PreferenceActivity implements OnSharedP
                 new OnPreferenceClickListener() {
                     @Override
                     public boolean onPreferenceClick(Preference preference) {
-                        PlaybackServiceController.getInstance().detectHeadset(checkboxHS.isChecked());
+                        PlaybackServiceClient.detectHeadset(PreferencesActivity.this, null, checkboxHS.isChecked());
                         return true;
                     }
                 });
@@ -137,7 +134,7 @@ public class PreferencesActivity extends PreferenceActivity implements OnSharedP
                 new OnPreferenceClickListener() {
                     @Override
                     public boolean onPreferenceClick(Preference preference) {
-                        restartService(preference.getContext());
+                        PlaybackServiceClient.restartService(PreferencesActivity.this);
                         return true;
                     }
                 });
@@ -191,7 +188,7 @@ public class PreferencesActivity extends PreferenceActivity implements OnSharedP
                         BitmapCache.getInstance().clear();
                         AudioUtil.clearCacheFolders();
                         setResult(RESULT_RESCAN);
-                        Toast.makeText(getBaseContext(), R.string.media_db_cleared, Toast.LENGTH_SHORT).show();
+                        Util.snacker(getWindow().getDecorView().findViewById(android.R.id.content), R.string.media_db_cleared);
                         return true;
                     }
                 });
@@ -257,7 +254,7 @@ public class PreferencesActivity extends PreferenceActivity implements OnSharedP
 
             @Override
             public boolean onPreferenceChange(Preference preference, Object newValue) {
-                Toast.makeText(getBaseContext(), R.string.set_locale_popup, Toast.LENGTH_SHORT).show();
+                Util.snacker(getWindow().getDecorView().findViewById(android.R.id.content), R.string.set_locale_popup);
                 return true;
             }
         });
@@ -283,6 +280,11 @@ public class PreferencesActivity extends PreferenceActivity implements OnSharedP
         /*** SharedPreferences Listener to apply changes ***/
         SharedPreferences sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
         sharedPrefs.registerOnSharedPreferenceChangeListener(this);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
     }
 
     private void applyTheme() {
@@ -349,7 +351,7 @@ public class PreferencesActivity extends PreferenceActivity implements OnSharedP
                 || key.equalsIgnoreCase("network_caching")
                 || key.equalsIgnoreCase("dev_hardware_decoder")) {
             VLCInstance.restart(this, sharedPreferences);
-            restartService(this);
+            PlaybackServiceClient.restartService(PreferencesActivity.this);
         }
     }
 
@@ -363,7 +365,7 @@ public class PreferencesActivity extends PreferenceActivity implements OnSharedP
                 if (dialog!=null) {
                     Window window = dialog.getWindow();
                     if (window != null) {
-                        ConstantState state = this.getWindow().getDecorView().getBackground().getConstantState();
+                        ConstantState state = this.getWindow().getDecorView().findViewById(android.R.id.content).getBackground().getConstantState();
                         if (state != null)
                             window.getDecorView().setBackgroundDrawable(state.newDrawable());
                     }
@@ -371,27 +373,5 @@ public class PreferencesActivity extends PreferenceActivity implements OnSharedP
             }
         } catch(Exception e){}
         return false;
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        PlaybackServiceController.getInstance().bindAudioService(this);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        PlaybackServiceController.getInstance().unbindAudioService(this);
-    }
-
-    private void restartService(Context context) {
-        Intent service = new Intent(context, PlaybackService.class);
-
-        PlaybackServiceController.getInstance().unbindAudioService(PreferencesActivity.this);
-        context.stopService(service);
-
-        context.startService(service);
-        PlaybackServiceController.getInstance().bindAudioService(PreferencesActivity.this);
     }
 }

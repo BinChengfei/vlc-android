@@ -21,11 +21,6 @@
 package org.videolan.vlc;
 
 import android.content.Context;
-import android.net.Uri;
-import android.util.Log;
-
-import java.util.ArrayList;
-import java.util.Arrays;
 
 import org.videolan.libvlc.Media;
 import org.videolan.libvlc.MediaList;
@@ -66,13 +61,12 @@ public class MediaWrapperListPlayer {
         if (mrl == null)
             return;
         final MediaWrapper mw = mMediaList.getMedia(position);
-        String[] options = VLCOptions.getMediaOptions(context, flags | (mw != null ? mw.getFlags() : 0));
-
+        if (mw == null)
+            return;
         mPlayerIndex = position;
 
         final Media media = new Media(VLCInstance.get(), mw.getUri());
-        for (String option : options)
-            media.addOption(option);
+        VLCOptions.setMediaOptions(media, context, flags | mw.getFlags());
         VLCInstance.getMainMediaPlayer().setMedia(media);
         media.release();
         VLCInstance.getMainMediaPlayer().setEqualizer(VLCOptions.getEqualizer());

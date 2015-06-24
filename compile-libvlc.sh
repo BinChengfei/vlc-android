@@ -110,7 +110,6 @@ VLC_CONFIGURE_ARGS="\
     --enable-avcodec \
     --enable-opus \
     --enable-opensles \
-    --enable-android-surface \
     --enable-mkv \
     --enable-taglib \
     --enable-dvbpsi \
@@ -283,11 +282,10 @@ fi
 REL=$(grep -o '^r[0-9]*.*' $ANDROID_NDK/RELEASE.TXT 2>/dev/null|cut -b2-)
 case "$REL" in
     10*)
+        GCCVER=4.9
         if [ "${HAVE_64}" = 1 ];then
-            GCCVER=4.9
             ANDROID_API=android-21
         else
-            GCCVER=4.8
             ANDROID_API=android-9
         fi
     ;;
@@ -378,6 +376,9 @@ fi
 
 EXTRA_CFLAGS="${EXTRA_CFLAGS} -I${ANDROID_NDK}/sources/cxx-stl/gnu-libstdc++/${GCCVER}/include"
 EXTRA_CFLAGS="${EXTRA_CFLAGS} -I${ANDROID_NDK}/sources/cxx-stl/gnu-libstdc++/${GCCVER}/libs/${ANDROID_ABI}/include"
+
+# XXX: remove when ndk C++11 is updated
+EXTRA_CXXFLAGS="-D__STDC_FORMAT_MACROS=1 -D__STDC_CONSTANT_MACROS=1 -D__STDC_LIMIT_MACROS=1"
 
 CPPFLAGS="-I${ANDROID_NDK}/sources/cxx-stl/gnu-libstdc++/${GCCVER}/include -I${ANDROID_NDK}/sources/cxx-stl/gnu-libstdc++/${GCCVER}/libs/${ANDROID_ABI}/include"
 
@@ -522,7 +523,7 @@ fi
 if [ ! -e ./config.h -o "$RELEASE" = 1 ]; then
 CPPFLAGS="$CPPFLAGS" \
 CFLAGS="$CFLAGS ${EXTRA_CFLAGS}" \
-CXXFLAGS="$CFLAGS" \
+CXXFLAGS="$CFLAGS ${EXTRA_CXXFLAGS}" \
 LDFLAGS="$LDFLAGS" \
 CC="${CROSS_COMPILE}gcc --sysroot=${SYSROOT}" \
 CXX="${CROSS_COMPILE}g++ --sysroot=${SYSROOT} -D__cpp_static_assert=200410" \

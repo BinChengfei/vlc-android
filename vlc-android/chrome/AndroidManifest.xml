@@ -1,103 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="org.videolan.vlc"
-    android:installLocation="auto"
-    android:versionCode="01050000"
-    android:versionName="1.5.0" >
-    <!--
-         versionCode scheme is T M NN RR AA
-         T: Target/Flavour (0 for Android, 1 for ATV, 2 for Chrome?)
-         M: Major version from 0 to 9
-         NN: Minor version from 00 to 99
-         RR: Micro/Revision version from 00 to 99
-         AA: ABI from 0 to 99
-         0 is dev
-         1 is ARMv5
-         2 is ARMv6-nofpu
-         3 is ARMv6-fpu
-         4 is ARMv7-A
-         5 is x86
-         6 is MIPS
-         7 is ARMv8
-         8 is x86_64
-         9 is MIPS64
-    -->
-    <uses-sdk
-        android:minSdkVersion="7"
-        android:targetSdkVersion="22" />
-
-    <!-- /!\ PHONE_CALLS
-         See org.videolan.vlc.PhoneStateReceiver.java
-         -->
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-
-    <!-- STORAGE -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-
-    <!-- DEVELOPMENT_TOOLS signature -->
-    <uses-permission android:name="android.permission.READ_LOGS"
-       android:maxSdkVersion="15" />
-
-    <!-- Internet -->
-    <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- normal -->
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
-
+    xmlns:tools="http://schemas.android.com/tools"
+    package="org.videolan.vlc" >
     <application
-        android:name="org.videolan.vlc.VLCApplication"
-        android:hardwareAccelerated="true"
-        android:largeHeap="true"
-        android:icon="@drawable/icon"
-        android:label="@string/app_name"
-        android:logo="@drawable/ic_logo_w"
-        android:theme="@style/Theme.VLC.NoTitleBar" >
-        <activity
-            android:name=".gui.MainActivity"
-            android:icon="@drawable/icon"
-            android:label="@string/app_name"
-            android:launchMode="singleTask"
-            android:windowSoftInputMode="adjustPan"
-            android:theme="@style/Theme.VLC" >
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <meta-data android:name="android.app.searchable"
-                android:resource="@xml/searchable" />
-
-        </activity>
-        <activity
-            android:name=".gui.SecondaryActivity"
-            android:windowSoftInputMode="adjustPan"
-            android:theme="@style/Theme.VLC"/>
-        <activity android:name=".gui.CompatErrorActivity" />
-        <activity android:name=".gui.PreferencesActivity"
-            android:theme="@style/Theme.VLC" />
-        <activity
-            android:name=".gui.BrowserActivity"
-            android:label="@string/mediafiles"
-            android:theme="@style/Theme.VLC" />
-
-        <activity android:name=".gui.DebugLogActivity"
-                  android:launchMode="singleTop" />
-        <service android:name=".gui.DebugLogService"
-                 android:process=":logger" />
-
-        <activity
-            android:name=".gui.NativeCrashActivity"
-            android:process=":NativeCrashActivity"
-            android:stateNotNeeded="true"
-            android:theme="@style/Theme.VLC" />
+        android:name="org.videolan.vlc.VLCApplication" >
         <activity
             android:name=".gui.video.VideoPlayerActivity"
             android:configChanges="orientation|screenSize"
-            android:theme="@style/Theme.VLC.Player" >
+            android:theme="@style/Theme.VLC.Player"
+            tools:node="replace" >
 
             <!-- This filter captures protocols without type info -->
             <intent-filter>
@@ -252,66 +163,6 @@
                 <data android:pathPattern=".*\\.wmv" />
                 <data android:pathPattern=".*\\.wtv" />
                 <data android:pathPattern=".*\\.xesc" />
-                <data android:pathPattern=".*\\.3G2" />
-                <data android:pathPattern=".*\\.3GP" />
-                <data android:pathPattern=".*\\.3GP2" />
-                <data android:pathPattern=".*\\.3GPP" />
-                <data android:pathPattern=".*\\.AMV" />
-                <data android:pathPattern=".*\\.ASF" />
-                <data android:pathPattern=".*\\.AVI" />
-                <data android:pathPattern=".*\\.DIVX" />
-                <data android:pathPattern=".*\\.DRC" />
-                <data android:pathPattern=".*\\.DV" />
-                <data android:pathPattern=".*\\.F4V" />
-                <data android:pathPattern=".*\\.FLV" />
-                <data android:pathPattern=".*\\.GVI" />
-                <data android:pathPattern=".*\\.GXF" />
-                <data android:pathPattern=".*\\.ISMV" />
-                <data android:pathPattern=".*\\.ISO" />
-                <data android:pathPattern=".*\\.M1V" />
-                <data android:pathPattern=".*\\.M2V" />
-                <data android:pathPattern=".*\\.M2T" />
-                <data android:pathPattern=".*\\.M2TS" />
-                <!-- <data android:pathPattern=".*\\.M3U" /> -->
-                <data android:pathPattern=".*\\.M3U8" />
-                <data android:pathPattern=".*\\.MKV" />
-                <data android:pathPattern=".*\\.MOV" />
-                <data android:pathPattern=".*\\.MP2" />
-                <data android:pathPattern=".*\\.MP2V" />
-                <data android:pathPattern=".*\\.MP4" />
-                <data android:pathPattern=".*\\.MP4V" />
-                <data android:pathPattern=".*\\.M4V" />
-                <data android:pathPattern=".*\\.MPE" />
-                <data android:pathPattern=".*\\.MPEG" />
-                <data android:pathPattern=".*\\.MPEG1" />
-                <data android:pathPattern=".*\\.MPEG2" />
-                <data android:pathPattern=".*\\.MPEG4" />
-                <data android:pathPattern=".*\\.MPG" />
-                <data android:pathPattern=".*\\.MPV2" />
-                <data android:pathPattern=".*\\.MTS" />
-                <data android:pathPattern=".*\\.MTV" />
-                <data android:pathPattern=".*\\.MXF" />
-                <data android:pathPattern=".*\\.MXG" />
-                <data android:pathPattern=".*\\.NSV" />
-                <data android:pathPattern=".*\\.NUT" />
-                <data android:pathPattern=".*\\.NUV" />
-                <data android:pathPattern=".*\\.OGM" />
-                <data android:pathPattern=".*\\.OGV" />
-                <data android:pathPattern=".*\\.OGX" />
-                <data android:pathPattern=".*\\.PS" />
-                <data android:pathPattern=".*\\.REC" />
-                <data android:pathPattern=".*\\.RM" />
-                <data android:pathPattern=".*\\.RMVB" />
-                <data android:pathPattern=".*\\.TOD" />
-                <data android:pathPattern=".*\\.TS" />
-                <data android:pathPattern=".*\\.TTS" />
-                <data android:pathPattern=".*\\.VOB" />
-                <data android:pathPattern=".*\\.VRO" />
-                <data android:pathPattern=".*\\.WEBM" />
-                <data android:pathPattern=".*\\.WM" />
-                <data android:pathPattern=".*\\.WMV" />
-                <data android:pathPattern=".*\\.WTV" />
-                <data android:pathPattern=".*\\.XESC" />
 
                 <!-- audio -->
 
@@ -363,82 +214,7 @@
                 <data android:pathPattern=".*\\.wv" />
                 <data android:pathPattern=".*\\.xa" />
                 <data android:pathPattern=".*\\.xm" />
-                <data android:pathPattern=".*\\.3GA" />
-                <data android:pathPattern=".*\\.A52" />
-                <data android:pathPattern=".*\\.AAC" />
-                <data android:pathPattern=".*\\.AC3" />
-                <data android:pathPattern=".*\\.ADT" />
-                <data android:pathPattern=".*\\.ADTS" />
-                <data android:pathPattern=".*\\.AIF" />
-                <data android:pathPattern=".*\\.AIFC" />
-                <data android:pathPattern=".*\\.AIFF" />
-                <data android:pathPattern=".*\\.AMR" />
-                <data android:pathPattern=".*\\.AOB" />
-                <data android:pathPattern=".*\\.APE" />
-                <data android:pathPattern=".*\\.AWB" />
-                <data android:pathPattern=".*\\.CAF" />
-                <data android:pathPattern=".*\\.DTS" />
-                <data android:pathPattern=".*\\.FLAC" />
-                <data android:pathPattern=".*\\.IT" />
-                <data android:pathPattern=".*\\.M4A" />
-                <data android:pathPattern=".*\\.M4B" />
-                <data android:pathPattern=".*\\.M4P" />
-                <data android:pathPattern=".*\\.MID" />
-                <data android:pathPattern=".*\\.MKA" />
-                <data android:pathPattern=".*\\.MLP" />
-                <data android:pathPattern=".*\\.MOD" />
-                <data android:pathPattern=".*\\.MPA" />
-                <data android:pathPattern=".*\\.MP1" />
-                <data android:pathPattern=".*\\.MP2" />
-                <data android:pathPattern=".*\\.MP3" />
-                <data android:pathPattern=".*\\.MPC" />
-                <data android:pathPattern=".*\\.MPGA" />
-                <data android:pathPattern=".*\\.OGA" />
-                <data android:pathPattern=".*\\.OGG" />
-                <data android:pathPattern=".*\\.OMA" />
-                <data android:pathPattern=".*\\.OPUS" />
-                <data android:pathPattern=".*\\.RA" />
-                <data android:pathPattern=".*\\.RAM" />
-                <data android:pathPattern=".*\\.RMI" />
-                <data android:pathPattern=".*\\.S3M" />
-                <data android:pathPattern=".*\\.SPX" />
-                <data android:pathPattern=".*\\.TTA" />
-                <data android:pathPattern=".*\\.VOC" />
-                <data android:pathPattern=".*\\.VQF" />
-                <data android:pathPattern=".*\\.W64" />
-                <data android:pathPattern=".*\\.WAV" />
-                <data android:pathPattern=".*\\.WMA" />
-                <data android:pathPattern=".*\\.WV" />
-                <data android:pathPattern=".*\\.XA" />
-                <data android:pathPattern=".*\\.XM" />
             </intent-filter>
         </activity>
-
-        <service android:name=".PlaybackService" />
-
-        <receiver android:name=".PhoneStateReceiver" >
-            <intent-filter>
-                <action android:name="android.intent.action.PHONE_STATE" />
-            </intent-filter>
-        </receiver>
-        <receiver
-            android:name=".widget.VLCAppWidgetProvider"
-            android:exported="false"
-            android:label="VLC resizable widget" >
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/vlcwidget" />
-        </receiver>
-        <receiver android:name=".RemoteControlClientReceiver" >
-            <intent-filter>
-                <action android:name="android.intent.action.MEDIA_BUTTON" />
-                <action android:name="org.videolan.vlc.remote.PlayPause" />
-            </intent-filter>
-        </receiver>
     </application>
-
 </manifest>

@@ -26,12 +26,11 @@ import java.util.Collections;
 import org.videolan.vlc.MediaLibrary;
 import org.videolan.vlc.MediaWrapper;
 import org.videolan.vlc.PlaybackService;
-import org.videolan.vlc.PlaybackServiceController;
+import org.videolan.vlc.PlaybackServiceClient;
 import org.videolan.vlc.R;
 import org.videolan.vlc.gui.DividerItemDecoration;
 import org.videolan.vlc.gui.audio.AudioUtil;
 import org.videolan.vlc.gui.audio.MediaComparators;
-import org.videolan.vlc.interfaces.IAudioPlayer;
 import org.videolan.vlc.util.AndroidDevices;
 
 import android.app.Activity;
@@ -47,12 +46,12 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-public class AudioPlayerActivity extends Activity implements PlaybackServiceController.AudioServiceConnectionListener, IAudioPlayer, View.OnFocusChangeListener {
+public class AudioPlayerActivity extends Activity implements PlaybackServiceClient.Callback, View.OnFocusChangeListener {
     public static final String TAG = "VLC/AudioPlayerActivity";
 
     public static final String MEDIA_LIST = "media_list";
 
-    private PlaybackServiceController mAudioController;
+    private PlaybackServiceClient mClient;
     private RecyclerView mRecyclerView;
     private PlaylistAdapter mAdapter;
     private LinearLayoutManager mLayoutManager;
@@ -84,9 +83,9 @@ public class AudioPlayerActivity extends Activity implements PlaybackServiceCont
         mAdapter = new PlaylistAdapter(this, mMediaList);
         mRecyclerView.setAdapter(mAdapter);
 
-        mAudioController = PlaybackServiceController.getInstance();
+        mClient = new PlaybackServiceClient(this, this);
 
-        mAudioController.getRepeatType();
+        mClient.getRepeatType();
         mTitleTv = (TextView)findViewById(R.id.media_title);
         mArtistTv = (TextView)findViewById(R.id.media_artist);
         mNext = (ImageView)findViewById(R.id.button_next);
@@ -98,17 +97,16 @@ public class AudioPlayerActivity extends Activity implements PlaybackServiceCont
         findViewById(R.id.button_shuffle).setOnFocusChangeListener(this);
     }
 
-    public void onStart(){
+    @Override
+    protected void onStart() {
         super.onStart();
-        mAudioController.bindAudioService(this, this);
-        mAudioController.addAudioPlayer(this);
+        mClient.connect();
     }
 
-    public void onStop(){
+    @Override
+    protected void onStop() {
         super.onStop();
-        mAudioController.removeAudioPlayer(this);
-        mAudioController.unbindAudioService(this);
-        mMediaList.clear();
+        mClient.disconnect();
     }
 
     protected void onResume() {
@@ -122,10 +120,10 @@ public class AudioPlayerActivity extends Activity implements PlaybackServiceCont
     };
 
     @Override
-    public void onConnectionSuccess() {
-        ArrayList<MediaWrapper> medias = (ArrayList<MediaWrapper>) mAudioController.getMedias();
+    public void onConnected() {
+        ArrayList<MediaWrapper> medias = (ArrayList<MediaWrapper>) mClient.getMedias();
         if (!mMediaList.isEmpty() && !mMediaList.equals(medias)) {
-            mAudioController.load(mMediaList, 0);
+            mClient.load(mMediaList, 0);
         } else {
             mMediaList = medias;
             update();
@@ -135,19 +133,22 @@ public class AudioPlayerActivity extends Activity implements PlaybackServiceCont
     }
 
     @Override
-    public void onConnectionFailed() {}
+    public void onDisconnected() {
+    }
 
     @Override
     public void update() {
-        mPlayPauseButton.setImageResource(mAudioController.isPlaying() ? R.drawable.ic_pause : R.drawable.ic_play);
-        if (mAudioController.hasMedia()) {
-            mTitleTv.setText(mAudioController.getTitle());
-            mArtistTv.setText(mAudioController.getArtist());
-            mProgressBar.setMax(mAudioController.getLength());
-            MediaWrapper MediaWrapper = MediaLibrary.getInstance().getMediaItem(mAudioController.getCurrentMediaLocation());
+        if (!mClient.isConnected())
+            return;
+        mPlayPauseButton.setImageResource(mClient.isPlaying() ? R.drawable.ic_pause : R.drawable.ic_play);
+        if (mClient.hasMedia()) {
+            mTitleTv.setText(mClient.getTitle());
+            mArtistTv.setText(mClient.getArtist());
+            mProgressBar.setMax(mClient.getLength());
+            MediaWrapper MediaWrapper = MediaLibrary.getInstance().getMediaItem(mClient.getCurrentMediaLocation());
             Bitmap cover = AudioUtil.getCover(this, MediaWrapper, mCover.getWidth());
             if (cover == null)
-                cover = mAudioController.getCover();
+                cover = mClient.getCover();
             if (cover == null)
                 mCover.setImageResource(R.drawable.background_cone);
             else
@@ -157,7 +158,17 @@ public class AudioPlayerActivity extends Activity implements PlaybackServiceCont
 
     @Override
     public void updateProgress() {
-        mProgressBar.setProgress(mAudioController.getTime());
+        mProgressBar.setProgress(mClient.getTime());
+    }
+
+    @Override
+    public void onMediaPlayedAdded(MediaWrapper media, int index) {
+
+    }
+
+    @Override
+    public void onMediaPlayedRemoved(int index) {
+
     }
 
     public boolean onKeyDown(int keyCode, KeyEvent event){
@@ -173,6 +184,7 @@ public class AudioPlayerActivity extends Activity implements PlaybackServiceCont
                 return true;
             case KeyEvent.KEYCODE_F:
             case KeyEvent.KEYCODE_BUTTON_R1:
+            case KeyEvent.KEYCODE_MEDIA_NEXT:
                 goNext();
                 return true;
             case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
@@ -183,6 +195,7 @@ public class AudioPlayerActivity extends Activity implements PlaybackServiceCont
                 return true;
             case KeyEvent.KEYCODE_R:
             case KeyEvent.KEYCODE_BUTTON_L1:
+            case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
                 goPrevious();
                 return true;
             /*
@@ -208,7 +221,7 @@ public class AudioPlayerActivity extends Activity implements PlaybackServiceCont
     }
 
     public void playSelection() {
-        mAudioController.playIndex(mAdapter.getmSelectedItem());
+        mClient.playIndex(mAdapter.getmSelectedItem());
         mCurrentlyPlaying = mAdapter.getmSelectedItem();
     }
 
@@ -240,10 +253,10 @@ public class AudioPlayerActivity extends Activity implements PlaybackServiceCont
     }
 
     private void seek(int delta) {
-        int time = mAudioController.getTime()+delta;
-        if (time < 0 || time > mAudioController.getLength())
+        int time = mClient.getTime()+delta;
+        if (time < 0 || time > mClient.getLength())
             return;
-        mAudioController.setTime(time);
+        mClient.setTime(time);
     }
 
     public void onClick(View v){
@@ -267,53 +280,55 @@ public class AudioPlayerActivity extends Activity implements PlaybackServiceCont
     }
 
     private void setShuffleMode(boolean shuffle) {
+        if (!mClient.isConnected())
+            return;
         mShuffling = shuffle;
         mShuffle.setImageResource(shuffle ? R.drawable.ic_shuffle_on :
                 R.drawable.ic_shuffle);
-        ArrayList<MediaWrapper> medias = (ArrayList<MediaWrapper>) mAudioController.getMedias();
+        ArrayList<MediaWrapper> medias = (ArrayList<MediaWrapper>) mClient.getMedias();
         if (shuffle){
             Collections.shuffle(medias);
         } else {
             Collections.sort(medias, MediaComparators.byTrackNumber);
         }
-        mAudioController.load(medias, 0);
+        mClient.load(medias, 0);
         mAdapter.updateList(medias);
         update();
     }
 
     private void updateRepeatMode() {
-        PlaybackService.RepeatType type = mAudioController.getRepeatType();
+        PlaybackService.RepeatType type = mClient.getRepeatType();
         if (type == PlaybackService.RepeatType.None){
-            mAudioController.setRepeatType(PlaybackService.RepeatType.All);
+            mClient.setRepeatType(PlaybackService.RepeatType.All);
             mRepeat.setImageResource(R.drawable.ic_repeat_on);
         } else if (type == PlaybackService.RepeatType.All) {
-            mAudioController.setRepeatType(PlaybackService.RepeatType.Once);
+            mClient.setRepeatType(PlaybackService.RepeatType.Once);
             mRepeat.setImageResource(R.drawable.ic_repeat_one);
         } else if (type == PlaybackService.RepeatType.Once) {
-            mAudioController.setRepeatType(PlaybackService.RepeatType.None);
+            mClient.setRepeatType(PlaybackService.RepeatType.None);
             mRepeat.setImageResource(R.drawable.ic_repeat);
         }
     }
 
     private void goPrevious() {
-        if (mAudioController.hasPrevious()) {
-            mAudioController.previous();
+        if (mClient.hasPrevious()) {
+            mClient.previous();
             selectItem(--mCurrentlyPlaying);
         }
     }
 
     private void goNext() {
-        if (mAudioController.hasNext()){
-            mAudioController.next();
+        if (mClient.hasNext()){
+            mClient.next();
             selectItem(++mCurrentlyPlaying);
         }
     }
 
     private void togglePlayPause() {
-        if (mAudioController.isPlaying())
-            mAudioController.pause();
-        else if (mAudioController.hasMedia())
-            mAudioController.play();
+        if (mClient.isPlaying())
+            mClient.pause();
+        else if (mClient.hasMedia())
+            mClient.play();
     }
 
     private void selectNext() {

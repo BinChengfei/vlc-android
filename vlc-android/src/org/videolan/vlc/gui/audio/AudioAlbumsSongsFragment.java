@@ -28,6 +28,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.support.design.widget.Snackbar;
+import android.support.design.widget.TabLayout;
 import android.support.v4.app.Fragment;
 import android.support.v4.view.ViewPager;
 import android.view.ContextMenu;
@@ -46,20 +47,18 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ListView;
 import android.widget.PopupMenu;
 import android.widget.PopupMenu.OnMenuItemClickListener;
-
-import com.android.widget.SlidingTabLayout;
+import android.widget.TextView;
 
 import org.videolan.libvlc.util.AndroidUtil;
 import org.videolan.vlc.MediaLibrary;
 import org.videolan.vlc.MediaWrapper;
-import org.videolan.vlc.PlaybackServiceController;
+import org.videolan.vlc.PlaybackServiceClient;
 import org.videolan.vlc.R;
 import org.videolan.vlc.VLCApplication;
-import org.videolan.vlc.gui.dialogs.CommonDialogs;
+import org.videolan.vlc.gui.AudioPlayerContainerActivity;
 import org.videolan.vlc.gui.SecondaryActivity;
 import org.videolan.vlc.util.AndroidDevices;
 import org.videolan.vlc.util.Util;
-import org.videolan.vlc.util.VLCRunnable;
 import org.videolan.vlc.util.WeakHandler;
 import org.videolan.vlc.widget.SwipeRefreshLayout;
 
@@ -76,8 +75,8 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
     private static final int DELETE_MEDIA = 0;
     private static final int DELETE_DURATION = 3000;
 
-    PlaybackServiceController mAudioController;
     private MediaLibrary mMediaLibrary;
+    private PlaybackServiceClient mClient;
 
     private SwipeRefreshLayout mSwipeRefreshLayout;
     private ViewPager mViewPager;
@@ -102,13 +101,13 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mClient = AudioPlayerContainerActivity.getPlaybackClient(this);
         mAlbumsAdapter = new AudioBrowserListAdapter(getActivity(), AudioBrowserListAdapter.ITEM_WITH_COVER);
         mSongsAdapter = new AudioBrowserListAdapter(getActivity(), AudioBrowserListAdapter.ITEM_WITH_COVER);
 
         mAlbumsAdapter.setContextPopupMenuListener(mContextPopupMenuListener);
         mSongsAdapter.setContextPopupMenuListener(mContextPopupMenuListener);
 
-        mAudioController = PlaybackServiceController.getInstance();
         mMediaLibrary = MediaLibrary.getInstance();
         if (savedInstanceState != null)
             setMediaList(savedInstanceState.<MediaWrapper>getParcelableArrayList("list"), savedInstanceState.getString("title"));
@@ -131,14 +130,12 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
         List<View> lists = Arrays.asList((View)albumsList, songsList);
         String[] titles = new String[] {getString(R.string.albums), getString(R.string.songs)};
         mViewPager = (ViewPager) v.findViewById(R.id.pager);
-        mViewPager.setOffscreenPageLimit(MODE_TOTAL-1);
+        mViewPager.setOffscreenPageLimit(MODE_TOTAL - 1);
         mViewPager.setAdapter(new AudioPagerAdapter(lists, titles));
 
         mViewPager.setOnTouchListener(mSwipeFilter);
-        SlidingTabLayout mSlidingTabLayout = (SlidingTabLayout) v.findViewById(R.id.sliding_tabs);
-        mSlidingTabLayout.setCustomTabView(R.layout.tab_layout, R.id.tab_title);
-        mSlidingTabLayout.setDistributeEvenly(true);
-        mSlidingTabLayout.setViewPager(mViewPager);
+        TabLayout mTabLayout = (TabLayout) v.findViewById(R.id.sliding_tabs);
+        mTabLayout.setupWithViewPager(mViewPager);
 
         songsList.setAdapter(mSongsAdapter);
         albumsList.setAdapter(mAlbumsAdapter);
@@ -184,11 +181,6 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
     }
 
     @Override
-    public void onDestroy() {
-        super.onDestroy();
-    }
-
-    @Override
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo) {
         int position = 0;
         if (menuInfo instanceof AdapterContextMenuInfo)
@@ -231,7 +223,7 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
         boolean append = id == R.id.audio_list_browser_append;
 
         if (id == R.id.audio_list_browser_delete) {
-            Snackbar.make(getView(), getString(R.string.playlist_deleted), Snackbar.LENGTH_LONG)
+            Snackbar.make(getView(), getString(R.string.file_deleted), Snackbar.LENGTH_LONG)
                 .setAction(android.R.string.cancel, mCancelDeleteMediaListener)
                 .show();
                 Message msg = mHandler.obtainMessage(DELETE_MEDIA, position, 0);
@@ -263,10 +255,12 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
             }
         }
 
-        if (append)
-            mAudioController.append(medias);
-        else
-            mAudioController.load(medias, startPosition);
+        if (mClient.isConnected()) {
+            if (append)
+                mClient.append(medias);
+            else
+                mClient.load(medias, startPosition);
+        }
 
         return super.onContextItemSelected(item);
     }
@@ -317,8 +311,10 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
     OnItemClickListener songsListener = new OnItemClickListener() {
         @Override
         public void onItemClick(AdapterView<?> av, View v, int p, long id) {
-            List<MediaWrapper> media = mSongsAdapter.getItem(p).mMediaList;
-            mAudioController.load(media, 0);
+            if (mClient.isConnected()) {
+                final List<MediaWrapper> media = mSongsAdapter.getItem(p).mMediaList;
+                mClient.load(media, 0);
+            }
         }
     };
 
@@ -398,7 +394,8 @@ public class AudioAlbumsSongsFragment extends Fragment implements SwipeRefreshLa
                     fragment.mMediaLibrary.getMediaItems().remove(media);
                     fragment.mSongsAdapter.removeMedia(media);
                     fragment.mAlbumsAdapter.removeMedia(media);
-                    fragment.mAudioController.removeLocation(media.getLocation());
+                    if (fragment.mClient.isConnected())
+                        fragment.mClient.removeLocation(media.getLocation());
                     fragment.mMediaLibrary.getMediaItems().remove(media);
                     new Thread(new Runnable() {
                         public void run() {

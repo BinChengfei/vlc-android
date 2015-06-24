@@ -177,6 +177,9 @@ android {
         res.srcDirs = ['tv/res']
         assets.srcDirs = ['tv/assets']
     }
+    sourceSets.chrome {
+        manifest.srcFile 'chrome/AndroidManifest.xml'
+    }
 }
 
 dependencies {
@@ -185,6 +188,7 @@ dependencies {
     compile 'com.android.support:cardview-v7:22.2.0'
     compile 'com.android.support:recyclerview-v7:22.2.0'
     compile 'com.android.support:design:22.2.0'
+    compile 'com.android.support:support-annotations:22.2.0'
     tvCompile 'com.android.support:leanback-v17:22.2.0'
     testCompile 'junit:junit:4.12'
 }

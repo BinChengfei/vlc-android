@@ -60,7 +60,7 @@ import org.videolan.vlc.MediaDatabase;
 import org.videolan.vlc.MediaGroup;
 import org.videolan.vlc.MediaLibrary;
 import org.videolan.vlc.MediaWrapper;
-import org.videolan.vlc.PlaybackServiceController;
+import org.videolan.vlc.PlaybackServiceClient;
 import org.videolan.vlc.R;
 import org.videolan.vlc.Thumbnailer;
 import org.videolan.vlc.VLCApplication;
@@ -113,7 +113,6 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
     private VideoGridAnimator mAnimator;
 
     private MainActivity mMainActivity;
-    private PlaybackServiceController mAudioController;
 
     // Gridview position saved in onPause()
     private int mGVFirstVisiblePos;
@@ -125,8 +124,6 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mAudioController = PlaybackServiceController.getInstance();
-
         mVideoAdapter = new VideoListAdapter(this);
         mMediaLibrary = MediaLibrary.getInstance();
 
@@ -137,6 +134,7 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
         if (activity != null)
             mThumbnailer = new Thumbnailer(activity, activity.getWindowManager().getDefaultDisplay());
     }
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState){
 
@@ -186,8 +184,6 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
     @Override
     public void onPause() {
         super.onPause();
-        if (!(getActivity() instanceof MainActivity))
-            PlaybackServiceController.getInstance().unbindAudioService(getActivity());
         mGVFirstVisiblePos = mGridView.getFirstVisiblePosition();
         mMediaLibrary.setBrowser(null);
         mMediaLibrary.removeUpdateHandler(mHandler);
@@ -200,9 +196,7 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
     @Override
     public void onResume() {
         super.onResume();
-        if (!(getActivity() instanceof MainActivity))
-            PlaybackServiceController.getInstance().bindAudioService(getActivity());
-        else
+        if ((getActivity() instanceof MainActivity))
             mMainActivity = (MainActivity) getActivity();
         mMediaLibrary.setBrowser(this);
         mMediaLibrary.addUpdateHandler(mHandler);
@@ -303,11 +297,11 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
     }
 
     protected void playVideo(MediaWrapper media, boolean fromStart) {
-        VideoPlayerActivity.start(getActivity(), media.getLocation(), fromStart);
+        VideoPlayerActivity.start(getActivity(), media.getUri(), fromStart);
     }
 
     protected void playAudio(MediaWrapper media) {
-        mAudioController.load(media, true);
+        PlaybackServiceClient.load(getActivity(), null, media, true);
     }
 
     private boolean handleContextItemSelected(MenuItem menu, int position) {
@@ -335,7 +329,7 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
                 }
                 return true;
             case R.id.video_list_delete:
-                Snackbar.make(getView(), getString(R.string.playlist_deleted), Snackbar.LENGTH_LONG)
+                Snackbar.make(getView(), getString(R.string.file_deleted), Snackbar.LENGTH_LONG)
                     .setAction(android.R.string.cancel, mCancelDeleteMediaListener)
                     .show();
                 Message msg = mDeleteHandler.obtainMessage(DELETE_MEDIA, position, 0);
@@ -571,7 +565,7 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
     }
 
     public void deleteMedia(int position){
-        MediaWrapper media = mVideoAdapter.getItem(position);
+        final MediaWrapper media = mVideoAdapter.getItem(position);
         final String path = media.getUri().getPath();
         new Thread(new Runnable() {
             public void run() {
@@ -580,8 +574,17 @@ public class VideoGridFragment extends MediaBrowserFragment implements ISortable
         }).start();
         mMediaLibrary.getMediaItems().remove(media);
         mVideoAdapter.remove(media);
-        if (mAudioController.getMediaLocations().contains(media.getLocation()))
-            mAudioController.removeLocation(media.getLocation());
+        PlaybackServiceClient.getMediaLocations(getActivity(), new PlaybackServiceClient.ResultCallback<List<String>>() {
+            @Override
+            public void onResult(PlaybackServiceClient client, List<String> result) {
+                if (result != null && result.contains(media.getLocation()))
+                    client.removeLocation(media.getLocation());
+            }
+
+            @Override
+            public void onError(PlaybackServiceClient client) {
+            }
+        });
     }
 
 

@@ -202,7 +202,6 @@ public class MainActivity extends AudioPlayerContainerActivity implements OnItem
         reloadPreferences();
     }
 
-
     @Override
     protected void onPostCreate(Bundle savedInstanceState) {
         super.onPostCreate(savedInstanceState);
@@ -447,7 +446,7 @@ public class MainActivity extends AudioPlayerContainerActivity implements OnItem
             item = menu.findItem(R.id.ml_menu_save);
             item.setVisible(true);
             String mrl = ((BaseBrowserFragment)current).mMrl;
-            item.setIcon(MediaDatabase.getInstance().networkFavExists(mrl) ?
+            item.setIcon(MediaDatabase.getInstance().networkFavExists(Uri.parse(mrl)) ?
                     R.drawable.ic_menu_bookmark_w :
                     R.drawable.ic_menu_bookmark_outline_w);
         } else
@@ -503,9 +502,9 @@ public class MainActivity extends AudioPlayerContainerActivity implements OnItem
                     Intent i = new Intent(PlaybackService.ACTION_REMOTE_LAST_PLAYLIST);
                     sendBroadcast(i);
                 } else if (current instanceof VideoGridFragment) {
-                    String location = Uri.decode(mSettings.getString(PreferencesActivity.VIDEO_LAST, null));
-                    if (location != null)
-                        VideoPlayerActivity.start(this, location);
+                    final Uri uri = Uri.parse(mSettings.getString(PreferencesActivity.VIDEO_LAST, null));
+                    if (uri != null)
+                        VideoPlayerActivity.start(this, uri);
                 }
                 break;
             case android.R.id.home:
