@@ -159,6 +159,7 @@ VLC_CONFIGURE_ARGS="\
     --disable-projectm \
     --disable-sout \
     --enable-vorbis \
+    --disable-wma-fixed\
     --disable-mad  \
     --disable-faad \
     --disable-x264 \
