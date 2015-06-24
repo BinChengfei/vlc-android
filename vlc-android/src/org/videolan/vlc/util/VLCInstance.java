@@ -53,6 +53,7 @@ public class VLCInstance {
             }
 
             sLibVLC = new LibVLC(VLCOptions.getLibOptions(pref));
+
             LibVLC.setOnNativeCrashListener(new LibVLC.OnNativeCrashListener() {
                 @Override
                 public void onNativeCrash() {

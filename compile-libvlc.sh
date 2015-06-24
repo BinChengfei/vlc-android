@@ -98,11 +98,6 @@ VLC_BOOTSTRAP_ARGS="\
     --enable-libarchive \
 "
 
-####modify by aFei
-#    --disable-wma-fixed	\
-#    --disable-mad \
-#######
-
 ###########################
 # VLC CONFIGURE ARGUMENTS #
 ###########################
@@ -170,9 +165,6 @@ VLC_CONFIGURE_ARGS="\
     --disable-x264 \
     --disable-schroedinger \
 "
-####modify by aFei 
-#    --enable-mad \
-#######
 
 ########################
 # VLC MODULE BLACKLIST #

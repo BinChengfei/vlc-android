@@ -14,6 +14,6 @@ export PATH=$PATH:$ANDROID_SDK/platform-tools:$ANDROID_SDK/tools
 	exit 0
 }
 
-sh compile.sh -a armeabi-v7a
+sh compile.sh -a armeabi-v7a -r
 
-#sh compile.sh -a armeabi-v7a  relase
+#sh compile.sh -a armeabi-v7a  release

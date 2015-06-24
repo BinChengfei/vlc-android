@@ -105,10 +105,6 @@ static void vlc_event_callback(const libvlc_event_t *ev, void *data)
             jstring sData = (*env)->NewStringUTF(env, "data");
         (*env)->CallVoidMethod(env, bundle, putLong, sData, ev->u.media_player_length_changed.new_length);
         (*env)->DeleteLocalRef(env, sData);
-    }else if(ev->type == libvlc_MediaDurationChanged) {
-                 jstring sData = (*env)->NewStringUTF(env, "data");
-             (*env)->CallVoidMethod(env, bundle, putLong, sData, ev->u.media_duration_changed.new_duration);
-             (*env)->DeleteLocalRef(env, sData);
     }
     //by aFei
 
