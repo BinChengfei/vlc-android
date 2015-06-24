@@ -201,7 +201,7 @@ public class MediaLibrary {
                 continue;
             playList = new AudioBrowserListAdapter.ListItem(playlistName, null, null, false);
             for (String track : items){
-                playList.mMediaList.add(new MediaWrapper(track));
+                playList.mMediaList.add(new MediaWrapper(AndroidUtil.LocationToUri(track)));
             }
             playlistItems.add(playList);
         }
@@ -287,7 +287,6 @@ public class MediaLibrary {
                 while (!directories.isEmpty()) {
                     File dir = directories.pop();
                     String dirPath = dir.getAbsolutePath();
-                    File[] f = null;
 
                     // Skip some system folders
                     if (dirPath.startsWith("/proc/") || dirPath.startsWith("/sys/") || dirPath.startsWith("/dev/"))
@@ -313,17 +312,15 @@ public class MediaLibrary {
                     // Filter the extensions and the folders
                     try {
                         String[] files = dir.list();
-                        File file;
-                        if (files != null){
-                            for (String fileName : files){
-                                file = new File(dirPath, fileName);
+                        if (files != null) {
+                            for (String fileName : files) {
+                                File file = new File(dirPath, fileName);
                                 if (mediaFileFilter.accept(file)){
                                     if (file.isFile())
                                         mediaToScan.add(file);
                                     else if (file.isDirectory())
                                         directories.push(file);
                                 }
-                                file = null;
                             }
                         }
                     } catch (Exception e){
@@ -338,14 +335,14 @@ public class MediaLibrary {
                 }
 
                 //Remove ignored files
-                HashSet<String> mediasToRemove = new HashSet<String>();
+                HashSet<Uri> mediasToRemove = new HashSet<Uri>();
                 String path;
                 outloop:
                 for (Map.Entry<String, MediaWrapper> entry : existingMedias.entrySet()){
                     path = entry.getKey();
                     for (String dirPath : dirsToIgnore) {
                         if (path.startsWith(dirPath)) {
-                            mediasToRemove.add(path);
+                            mediasToRemove.add(entry.getValue().getUri());
                             mItemList.remove(existingMedias.get(path));
                             continue outloop;
                         }
@@ -355,7 +352,7 @@ public class MediaLibrary {
 
                 // Process the stacked items
                 for (File file : mediaToScan) {
-                    String fileURI = AndroidUtil.PathToURI(file.getPath());
+                    String fileURI = AndroidUtil.FileToUri(file).toString();
                     if (mBrowser != null && mBrowser.get() != null)
                         mBrowser.get().sendTextInfo(file.getName(), count,
                                 mediaToScan.size());
@@ -408,7 +405,7 @@ public class MediaLibrary {
                     for (String fileURI : addedLocations) {
                         existingMedias.remove(fileURI);
                     }
-                    mediaDatabase.removeMedias(existingMedias.keySet());
+                    mediaDatabase.removeMediaWrappers(existingMedias.values());
 
                     /*
                      * In case of file matching path of a folder from another removable storage

@@ -28,8 +28,14 @@ import android.view.Surface;
 
 import org.videolan.libvlc.util.HWDecoderUtil;
 
-public class LibVLC extends VLCObject {
+public class LibVLC extends VLCObject<LibVLC.Event> {
     private static final String TAG = "VLC/LibVLC";
+
+    public static class Event extends VLCEvent {
+        protected Event(int type) {
+            super(type);
+        }
+    }
 
     /** Native crash handler */
     private static OnNativeCrashListener sOnNativeCrashListener;
@@ -48,23 +54,21 @@ public class LibVLC extends VLCObject {
      * @param options
      */
     public LibVLC(ArrayList<String> options) {
-        boolean setAout = true, setVout = true, setChroma = true;
+        boolean setAout = true, setChroma = true;
         // check if aout/vout options are already set
         if (options != null) {
             for (String option : options) {
                 if (option.startsWith("--aout="))
                     setAout = false;
-                if (option.startsWith("--vout="))
-                    setVout = false;
-                if (option.startsWith("--androidsurface-chroma"))
+                if (option.startsWith("--androidwindow-chroma"))
                     setChroma = false;
-                if (!setAout && !setVout && !setChroma)
+                if (!setAout && !setChroma)
                     break;
             }
         }
 
         // set aout/vout options if they are not set
-        if (setAout || setVout || setChroma) {
+        if (setAout || setChroma) {
             if (options == null)
                 options = new ArrayList<String>();
             if (setAout) {
@@ -74,19 +78,13 @@ public class LibVLC extends VLCObject {
                 else
                     options.add("--aout=android_audiotrack");
             }
-            if (setVout) {
-                if (HWDecoderUtil.HAS_WINDOW_VOUT)
-                    options.add("--vout=androidwindow");
-                else
-                    options.add("--vout=androidsurface");
-            }
             if (setChroma) {
-                options.add("--androidsurface-chroma");
+                options.add("--androidwindow-chroma");
                 options.add("RV32");
             }
         }
 
-        nativeNew(options != null ? options.toArray(new String[options.size()]) : null);
+        nativeNew(options.toArray(new String[options.size()]));
         setEventHandler(EventHandler.getInstance());
     }
 

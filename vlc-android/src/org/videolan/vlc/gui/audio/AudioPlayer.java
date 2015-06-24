@@ -52,7 +52,7 @@ import android.widget.ViewSwitcher;
 
 import org.videolan.vlc.MediaWrapper;
 import org.videolan.vlc.PlaybackService;
-import org.videolan.vlc.PlaybackServiceController;
+import org.videolan.vlc.PlaybackServiceClient;
 import org.videolan.vlc.R;
 import org.videolan.vlc.VLCApplication;
 import org.videolan.vlc.gui.AudioPlayerContainerActivity;
@@ -61,7 +61,6 @@ import org.videolan.vlc.gui.audio.widget.CoverMediaSwitcher;
 import org.videolan.vlc.gui.audio.widget.HeaderMediaSwitcher;
 import org.videolan.vlc.gui.dialogs.AdvOptionsDialog;
 import org.videolan.vlc.gui.dialogs.SavePlaylistDialog;
-import org.videolan.vlc.interfaces.IAudioPlayer;
 import org.videolan.vlc.util.Strings;
 import org.videolan.vlc.util.Util;
 import org.videolan.vlc.widget.AudioMediaSwitcher.AudioMediaSwitcherListener;
@@ -69,7 +68,7 @@ import org.videolan.vlc.widget.AudioMediaSwitcher.AudioMediaSwitcherListener;
 import java.util.ArrayList;
 import java.util.List;
 
-public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickListener {
+public class AudioPlayer extends Fragment implements PlaybackServiceClient.Callback, View.OnClickListener {
     public static final String TAG = "VLC/AudioPlayer";
 
     private ProgressBar mProgressBar;
@@ -91,7 +90,7 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
 
     ViewSwitcher mSwitcher;
 
-    private PlaybackServiceController mAudioController;
+    private PlaybackServiceClient mClient;
     private boolean mShowRemainingTime = false;
     private boolean mPreviewingSeek = false;
 
@@ -112,9 +111,13 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mAudioController = PlaybackServiceController.getInstance();
-
         mSongsListAdapter = new AudioPlaylistAdapter(getActivity());
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        mClient = AudioPlayerContainerActivity.getPlaybackClient(this);
     }
 
     @Override
@@ -229,7 +232,8 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
         mSongsList.setOnItemClickListener(new OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> av, View v, int p, long id) {
-                mAudioController.playIndex(p);
+                if (mClient.isConnected())
+                    mClient.playIndex(p);
             }
         });
         mSongsList.setOnItemLongClickListener(new OnItemLongClickListener() {
@@ -243,13 +247,15 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
         mSongsList.setOnItemDraggedListener(new AudioPlaylistView.OnItemDraggedListener() {
             @Override
             public void onItemDragged(int positionStart, int positionEnd) {
-                mAudioController.moveItem(positionStart, positionEnd);
+                if (mClient.isConnected())
+                    mClient.moveItem(positionStart, positionEnd);
             }
         });
         mSongsList.setOnItemRemovedListener(new AudioPlaylistView.OnItemRemovedListener() {
             @Override
             public void onItemRemoved(int position) {
-                mAudioController.remove(position);
+                if (mClient.isConnected())
+                    mClient.remove(position);
                 update();
             }
         });
@@ -292,7 +298,8 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
 
             if(id == R.id.audio_player_mini_remove) {
                 Log.d(TAG, "Context menu removing " + info.position);
-                mAudioController.remove(info.position);
+                if (mClient.isConnected())
+                    mClient.remove(info.position);
                 return true;
             }
             return super.onContextItemSelected(item);
@@ -312,16 +319,23 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
     }
 
     @Override
-    public synchronized void update() {
+    public void onConnected() {
+    }
 
-        if (mAudioController == null)
+    @Override
+    public void onDisconnected() {
+    }
+
+    @Override
+    public void update() {
+        if (!mClient.isConnected())
             return;
 
-        if (mAudioController.hasMedia()) {
+        if (mClient.hasMedia()) {
             SharedPreferences mSettings= PreferenceManager.getDefaultSharedPreferences(getActivity());
             if (mSettings.getBoolean(PreferencesActivity.VIDEO_RESTORE, false)){
                 Util.commitPreferences(mSettings.edit().putBoolean(PreferencesActivity.VIDEO_RESTORE, false));
-                mAudioController.handleVout();
+                mClient.handleVout();
                 return;
             }
             show();
@@ -330,12 +344,12 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
             return;
         }
 
-        mHeaderMediaSwitcher.updateMedia();
-        mCoverMediaSwitcher.updateMedia();
+        mHeaderMediaSwitcher.updateMedia(mClient);
+        mCoverMediaSwitcher.updateMedia(mClient);
 
         FragmentActivity act = getActivity();
 
-        if (mAudioController.isPlaying()) {
+        if (mClient.isPlaying()) {
             mPlayPause.setImageResource(Util.getResourceFromAttribute(act, R.attr.ic_pause));
             mPlayPause.setContentDescription(getString(R.string.pause));
             mHeaderPlayPause.setImageResource(Util.getResourceFromAttribute(act, R.attr.ic_pause));
@@ -346,14 +360,14 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
             mHeaderPlayPause.setImageResource(Util.getResourceFromAttribute(act, R.attr.ic_play));
             mHeaderPlayPause.setContentDescription(getString(R.string.play));
         }
-        if (mAudioController.isShuffling()) {
+        if (mClient.isShuffling()) {
             mShuffle.setImageResource(Util.getResourceFromAttribute(act, R.attr.ic_shuffle_on));
             mShuffle.setContentDescription(getResources().getString(R.string.shuffle_on));
         } else {
             mShuffle.setImageResource(Util.getResourceFromAttribute(act, R.attr.ic_shuffle));
             mShuffle.setContentDescription(getResources().getString(R.string.shuffle));
         }
-        switch(mAudioController.getRepeatType()) {
+        switch(mClient.getRepeatType()) {
         case None:
             mRepeat.setImageResource(Util.getResourceFromAttribute(act, R.attr.ic_repeat));
             mRepeat.setContentDescription(getResources().getString(R.string.repeat));
@@ -369,12 +383,13 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
             break;
         }
 
-        mShuffle.setVisibility(mAudioController.getMediaLocations().size() > 2 ? View.VISIBLE : View.INVISIBLE);
-        if (mAudioController.hasNext())
+        final List<String> mediaLocations = mClient.getMediaLocations();
+        mShuffle.setVisibility(mediaLocations != null && mediaLocations.size() > 2 ? View.VISIBLE : View.INVISIBLE);
+        if (mClient.hasNext())
             mNext.setVisibility(ImageButton.VISIBLE);
         else
             mNext.setVisibility(ImageButton.INVISIBLE);
-        if (mAudioController.hasPrevious())
+        if (mClient.hasPrevious())
             mPrevious.setVisibility(ImageButton.VISIBLE);
         else
             mPrevious.setVisibility(ImageButton.INVISIBLE);
@@ -384,9 +399,11 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
     }
 
     @Override
-    public synchronized void updateProgress() {
-        int time = mAudioController.getTime();
-        int length = mAudioController.getLength();
+    public void updateProgress() {
+        if (!mClient.isConnected())
+            return;
+        int time = mClient.getTime();
+        int length = mClient.getLength();
 
         mHeaderTime.setText(Strings.millisToString(time));
         mLength.setText(Strings.millisToString(length));
@@ -400,13 +417,23 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
         }
     }
 
+    @Override
+    public void onMediaPlayedAdded(MediaWrapper media, int index) {
+    }
+
+    @Override
+    public void onMediaPlayedRemoved(int index) {
+    }
+
     private void updateList() {
         int currentIndex = -1;
+        if (!mClient.isConnected())
+            return;
 
         mSongsListAdapter.clear();
 
-        final List<MediaWrapper> audioList = mAudioController.getMedias();
-        final String currentItem = mAudioController.getCurrentMediaLocation();
+        final List<MediaWrapper> audioList = mClient.getMedias();
+        final String currentItem = mClient.getCurrentMediaLocation();
 
         if (audioList != null) {
             for (int i = 0; i < audioList.size(); i++) {
@@ -438,9 +465,9 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
 
         @Override
         public void onProgressChanged(SeekBar sb, int prog, boolean fromUser) {
-            if (fromUser) {
-                mAudioController.setTime(prog);
-                mTime.setText(Strings.millisToString(mShowRemainingTime ? prog-mAudioController.getLength() : prog));
+            if (fromUser && mClient.isConnected()) {
+                mClient.setTime(prog);
+                mTime.setText(Strings.millisToString(mShowRemainingTime ? prog- mClient.getLength() : prog));
                 mHeaderTime.setText(Strings.millisToString(prog));
         }
     }
@@ -452,43 +479,52 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
     }
 
     public void onPlayPauseClick(View view) {
-        if (mAudioController.isPlaying()) {
-            mAudioController.pause();
+        if (!mClient.isConnected())
+            return;
+        if (mClient.isPlaying()) {
+            mClient.pause();
         } else {
-            mAudioController.play();
+            mClient.play();
         }
     }
 
     public void onStopClick(View view) {
-        mAudioController.stop();
+        if (mClient.isConnected())
+            mClient.stop();
     }
 
     public void onNextClick(View view) {
-        mAudioController.next();
+        if (mClient.isConnected())
+            mClient.next();
     }
 
     public void onPreviousClick(View view) {
-        mAudioController.previous();
+        if (mClient.isConnected())
+            mClient.previous();
     }
 
     public void onRepeatClick(View view) {
-        switch (mAudioController.getRepeatType()) {
+        if (!mClient.isConnected())
+            return;
+
+        switch (mClient.getRepeatType()) {
             case None:
-                mAudioController.setRepeatType(PlaybackService.RepeatType.All);
+                mClient.setRepeatType(PlaybackService.RepeatType.All);
                 break;
             case All:
-                mAudioController.setRepeatType(PlaybackService.RepeatType.Once);
+                mClient.setRepeatType(PlaybackService.RepeatType.Once);
                 break;
             default:
             case Once:
-                mAudioController.setRepeatType(PlaybackService.RepeatType.None);
+                mClient.setRepeatType(PlaybackService.RepeatType.None);
                 break;
         }
         update();
     }
 
     public void onShuffleClick(View view) {
-        mAudioController.shuffle();
+        if (mClient.isConnected())
+            mClient.shuffle();
         update();
     }
 
@@ -555,10 +591,12 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
 
         @Override
         public void onMediaSwitched(int position) {
+            if (!mClient.isConnected())
+                return;
             if (position == AudioMediaSwitcherListener.PREVIOUS_MEDIA)
-                mAudioController.previous();
+                mClient.previous();
             else if (position == AudioMediaSwitcherListener.NEXT_MEDIA)
-                mAudioController.next();
+                mClient.next();
         }
 
         @Override
@@ -585,10 +623,12 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
 
         @Override
         public void onMediaSwitched(int position) {
+            if (!mClient.isConnected())
+                return;
             if (position == AudioMediaSwitcherListener.PREVIOUS_MEDIA)
-                mAudioController.previous();
+                mClient.previous();
             else if (position == AudioMediaSwitcherListener.NEXT_MEDIA)
-                mAudioController.next();
+                mClient.next();
         }
 
         @Override
@@ -605,10 +645,12 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
     public void onClick(View v) {
         switch (v.getId()){
             case R.id.playlist_save:
+                if (!mClient.isConnected())
+                    return;
                 FragmentManager fm = getActivity().getSupportFragmentManager();
                 SavePlaylistDialog savePlaylistDialog = new SavePlaylistDialog();
                 Bundle args = new Bundle();
-                args.putParcelableArrayList(SavePlaylistDialog.KEY_TRACKS, (ArrayList<MediaWrapper>) mAudioController.getMedias());
+                args.putParcelableArrayList(SavePlaylistDialog.KEY_TRACKS, (ArrayList<MediaWrapper>) mClient.getMedias());
                 savePlaylistDialog.setArguments(args);
                 savePlaylistDialog.show(fm, "fragment_save_playlist");
                 break;
@@ -659,14 +701,16 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
 
         @Override
         public boolean onTouch(View v, MotionEvent event) {
+            if (!mClient.isConnected())
+                return false;
             switch(event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 (forward ? mNext : mPrevious).setImageResource(this.pressed);
 
-                possibleSeek = mAudioController.getTime();
+                possibleSeek = mClient.getTime();
                 mPreviewingSeek = true;
                 vibrated = false;
-                length = mAudioController.getLength();
+                length = mClient.getLength();
 
                 h.postDelayed(seekRunnable, 1000);
                 return true;
@@ -683,13 +727,13 @@ public class AudioPlayer extends Fragment implements IAudioPlayer, View.OnClickL
                         onPreviousClick(v);
                 } else {
                     if(forward) {
-                        if(possibleSeek < mAudioController.getLength())
-                            mAudioController.setTime(possibleSeek);
+                        if(possibleSeek < mClient.getLength())
+                            mClient.setTime(possibleSeek);
                         else
                             onNextClick(v);
                     } else {
                         if(possibleSeek > 0)
-                            mAudioController.setTime(possibleSeek);
+                            mClient.setTime(possibleSeek);
                         else
                             onPreviousClick(v);
                     }

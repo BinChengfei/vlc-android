@@ -39,6 +39,7 @@ import org.videolan.vlc.interfaces.IVideoBrowser;
 import org.videolan.vlc.gui.video.VideoListHandler;
 import org.videolan.vlc.util.AndroidDevices;
 import org.videolan.vlc.util.VLCInstance;
+import org.videolan.vlc.util.WeakHandler;
 
 import android.app.Activity;
 import android.app.FragmentManager;
@@ -51,8 +52,10 @@ import android.graphics.drawable.Drawable;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Message;
 import android.support.v17.leanback.app.BackgroundManager;
 import android.support.v17.leanback.app.BrowseFragment;
 import android.support.v17.leanback.widget.ArrayObjectAdapter;
@@ -134,14 +137,16 @@ public class MainTvActivity extends Activity implements IVideoBrowser, OnItemVie
         mBrowseFragment.setHeadersState(BrowseFragment.HEADERS_ENABLED);
         mBrowseFragment.setTitle(getString(R.string.app_name));
         mBrowseFragment.setBadgeDrawable(getResources().getDrawable(R.drawable.icon));
-        // set search icon color
-        mBrowseFragment.setSearchAffordanceColor(getResources().getColor(R.color.orange500));
 
         // add a listener for selected items
         mBrowseFragment.setOnItemViewClickedListener(this);
         mBrowseFragment.setOnItemViewSelectedListener(this);
 
-        mBrowseFragment.setOnSearchClickedListener(this);
+        if (!Build.MANUFACTURER.equalsIgnoreCase("amazon")) { //Hide search for Amazon Fire TVs
+            mBrowseFragment.setOnSearchClickedListener(this);
+            // set search icon color
+            mBrowseFragment.setSearchAffordanceColor(getResources().getColor(R.color.orange500));
+        }
         mRootContainer = mBrowseFragment.getView();
         mMediaLibrary.loadMediaItems(true);
         BackgroundManager.getInstance(this).attach(getWindow());
@@ -164,8 +169,14 @@ public class MainTvActivity extends Activity implements IVideoBrowser, OnItemVie
         if (mMediaLibrary.isWorking()) //Display UI while MediaLib is scanning
             updateList();
         //Handle network connection state
-        IntentFilter filter = new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION);
-        registerReceiver(networkReceiver, filter);
+        IntentFilter networkfilter = new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION);
+
+        IntentFilter storageFilter = new IntentFilter(Intent.ACTION_MEDIA_MOUNTED);
+        storageFilter.addAction(Intent.ACTION_MEDIA_UNMOUNTED);
+        storageFilter.addDataScheme("file");
+
+        registerReceiver(externalDevicesReceiver, networkfilter);
+        registerReceiver(externalDevicesReceiver, storageFilter);
     }
 
     protected void onPause() {
@@ -176,7 +187,7 @@ public class MainTvActivity extends Activity implements IVideoBrowser, OnItemVie
         if (sThumbnailer != null)
             sThumbnailer.setVideoBrowser(null);
         mBarrier.reset();
-        unregisterReceiver(networkReceiver);
+        unregisterReceiver(externalDevicesReceiver);
     }
 
     @Override
@@ -405,7 +416,7 @@ public class MainTvActivity extends Activity implements IVideoBrowser, OnItemVie
                 MediaDatabase mediaDatabase = MediaDatabase.getInstance();
                 if (sThumbnailer != null && videoList != null && !videoList.isEmpty()) {
                     for (MediaWrapper MediaWrapper : videoList){
-                        picture = mediaDatabase.getPicture(MediaWrapper.getLocation());
+                        picture = mediaDatabase.getPicture(MediaWrapper.getUri());
                         if (picture== null)
                             sThumbnailer.addJob(MediaWrapper);
                     }
@@ -420,7 +431,7 @@ public class MainTvActivity extends Activity implements IVideoBrowser, OnItemVie
         return sThumbnailer;
     }
 
-    private final BroadcastReceiver networkReceiver = new BroadcastReceiver() {
+    private final BroadcastReceiver externalDevicesReceiver = new BroadcastReceiver() {
         boolean connected = true;
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -441,7 +452,36 @@ public class MainTvActivity extends Activity implements IVideoBrowser, OnItemVie
                     updateList();
                 }
 
+            } else if (action.equalsIgnoreCase(Intent.ACTION_MEDIA_MOUNTED)) {
+                mStorageHandlerHandler.sendEmptyMessage(ACTION_MEDIA_MOUNTED);
+            } else if (action.equalsIgnoreCase(Intent.ACTION_MEDIA_UNMOUNTED)) {
+                mStorageHandlerHandler.sendEmptyMessageDelayed(ACTION_MEDIA_UNMOUNTED, 100); //Delay to cancel it in case of MOUNT
             }
         }
     };
+
+    Handler mStorageHandlerHandler = new FileBrowserFragmentHandler(this);
+
+    private static final int ACTION_MEDIA_MOUNTED = 1337;
+    private static final int ACTION_MEDIA_UNMOUNTED = 1338;
+
+    private static class FileBrowserFragmentHandler extends WeakHandler<MainTvActivity> {
+
+        public FileBrowserFragmentHandler(MainTvActivity owner) {
+            super(owner);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+
+            switch (msg.what){
+                case ACTION_MEDIA_MOUNTED:
+                    removeMessages(ACTION_MEDIA_UNMOUNTED);
+                case ACTION_MEDIA_UNMOUNTED:
+                    getOwner().mMediaLibrary.loadMediaItems(true);
+                    break;
+            }
+        }
+    }
 }

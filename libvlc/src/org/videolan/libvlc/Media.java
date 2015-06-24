@@ -22,10 +22,29 @@ package org.videolan.libvlc;
 
 import android.net.Uri;
 
+import org.videolan.libvlc.util.AndroidUtil;
+import org.videolan.libvlc.util.HWDecoderUtil;
+
 import java.io.FileDescriptor;
 
-public class Media extends VLCObject {
+public class Media extends VLCObject<Media.Event> {
     private final static String TAG = "LibVLC/Media";
+
+    public static class Event extends VLCEvent {
+        public static final int MetaChanged = 0;
+        public static final int SubItemAdded = 1;
+        public static final int DurationChanged = 2;
+        public static final int ParsedChanged = 3;
+        //public static final int Freed                      = 4;
+        public static final int StateChanged = 5;
+        public static final int SubItemTreeAdded = 6;
+
+        protected Event(int type) {
+            super(type);
+        }
+    }
+
+    public interface EventListener extends VLCEvent.Listener<Media.Event> {}
 
     /**
      * libvlc_media_type_t
@@ -147,7 +166,7 @@ public class Media extends VLCObject {
         }
     }
 
-    /* Used from JNI */
+    @SuppressWarnings("unused") /* Used from JNI */
     private static Track createAudioTrackFromNative(String codec, String originalCodec, int id, int profile,
             int level, int bitrate, String language, String description,
             int channels, int rate) {
@@ -203,7 +222,7 @@ public class Media extends VLCObject {
         }
     }
 
-    /* Used from JNI */
+    @SuppressWarnings("unused") /* Used from JNI */
     private static Track createSubtitleTrackFromNative(String codec, String originalCodec, int id, int profile,
             int level, int bitrate, String language, String description,
             String encoding) {
@@ -216,7 +235,7 @@ public class Media extends VLCObject {
     private static final int PARSE_STATUS_PARSING = 0x01;
     private static final int PARSE_STATUS_PARSED = 0x02;
 
-    private String mMrl = null;
+    private Uri mUri = null;
     private MediaList mSubItems = null;
     private int mParseStatus = PARSE_STATUS_INIT;
     private String mNativeMetas[] = null;
@@ -224,6 +243,7 @@ public class Media extends VLCObject {
     private long mDuration;
     private int mState = State.NothingSpecial;
     private int mType = Type.Unknown;
+    private boolean mCodecOptionSet = false;
 
     /**
      * Create a Media from libVLC and a local path starting with '/'.
@@ -233,7 +253,7 @@ public class Media extends VLCObject {
      */
     public Media(LibVLC libVLC, String path) {
         nativeNewFromPath(libVLC, path);
-        mMrl = nativeGetMrl();
+        mUri = UriFromMrl(nativeGetMrl());
         mType = nativeGetType();
     }
 
@@ -244,8 +264,8 @@ public class Media extends VLCObject {
      * @param uri
      */
     public Media(LibVLC libVLC, Uri uri) {
-        nativeNewFromLocation(libVLC, uri.toString());
-        mMrl = nativeGetMrl();
+        nativeNewFromLocation(libVLC, locationFromUri(uri));
+        mUri = uri;
         mType = nativeGetType();
     }
 
@@ -257,28 +277,85 @@ public class Media extends VLCObject {
      */
     public Media(LibVLC libVLC, FileDescriptor fd) {
         nativeNewFromFD(libVLC, fd);
-        mMrl = nativeGetMrl();
+        mUri = UriFromMrl(nativeGetMrl());
         mType = nativeGetType();
     }
 
     /**
      *
-     * @param ml Should not be released
+     * @param ml Should not be released and locked
      * @param index
      */
     protected Media(MediaList ml, int index) {
         if (ml == null || ml.isReleased())
             throw new IllegalArgumentException("MediaList is null or released");
+        if (!ml.isLocked())
+            throw new IllegalStateException("MediaList should be locked");
         nativeNewFromMediaList(ml, index);
-        mMrl = nativeGetMrl();
+        mUri = UriFromMrl(nativeGetMrl());
         mNativeMetas = nativeGetMetas();
         mType = nativeGetType();
+    }
+
+    private static final String URI_AUTHORIZED_CHARS = "!'()*";
+
+    /**
+     * VLC authorize only "-._~" in Mrl format, android Uri authorize "_-!.~'()*".
+     * Therefore, decode the characters authorized by Android Uri when creating an Uri from VLC.
+     * @param mrl
+     * @return
+     */
+    private static Uri UriFromMrl(String mrl) {
+        final char array[] = mrl.toCharArray();
+        final StringBuilder sb = new StringBuilder(array.length);
+
+        for (int i = 0; i < array.length; ++i) {
+            final char c = array[i];
+            if (c == '%') {
+                if (array.length - i < 3)
+                    throw new IllegalArgumentException("bad mrl format");
+
+                final int hex = Integer.parseInt(new String(array, i + 1, 2), 16);
+                if (URI_AUTHORIZED_CHARS.indexOf(hex) != -1) {
+                    sb.append((char)hex);
+                    i += 2;
+                    continue;
+                }
+            }
+            sb.append(c);
+        }
+
+        return Uri.parse(sb.toString());
+    }
+
+    /**
+     * VLC authorize only "-._~" in Mrl format, android Uri authorize "_-!.~'()*".
+     * Therefore, encode the characters authorized by Android Uri when creating a mrl from an Uri.
+     * @param uri
+     * @return
+     */
+    private static String locationFromUri(Uri uri) {
+        final char array[] = uri.toString().toCharArray();
+        final StringBuilder sb = new StringBuilder(array.length * 2);
+
+        for (final char c : array) {
+            if (URI_AUTHORIZED_CHARS.indexOf(c) != -1)
+                sb.append("%").append(Integer.toHexString(c));
+            else
+                sb.append(c);
+        }
+
+        return sb.toString();
+    }
+
+    public void setEventListener(EventListener listener) {
+        super.setEventListener(listener);
     }
 
     @Override
     protected synchronized Event onEventNative(int eventType, long arg1, long arg2) {
         switch (eventType) {
-        case VLCObject.Events.MediaMetaChanged:
+        case Event.MetaChanged:
             // either we update all metas (if first call) or we update a specific meta
             if (mNativeMetas == null) {
                 mNativeMetas = nativeGetMetas();
@@ -288,13 +365,13 @@ public class Media extends VLCObject {
                     mNativeMetas[id] = nativeGetMeta(id);
             }
             break;
-        case VLCObject.Events.MediaDurationChanged:
+        case Event.DurationChanged:
             mDuration = nativeGetDuration();
             break;
-        case VLCObject.Events.MediaParsedChanged:
+        case Event.ParsedChanged:
             postParse();
             break;
-        case VLCObject.Events.MediaStateChanged:
+        case Event.StateChanged:
             mState = nativeGetState();
             break;
         }
@@ -304,8 +381,8 @@ public class Media extends VLCObject {
     /**
      * Get the MRL associated with the Media.
      */
-    public synchronized String getMrl() {
-        return mMrl;
+    public synchronized Uri getUri() {
+        return mUri;
     }
 
     /**
@@ -385,7 +462,7 @@ public class Media extends VLCObject {
     /**
      * Parse the media asynchronously with a flag. This Media should be alive (not released).
      *
-     * To track when this is over you can listen to {@link VLCObject.Events#MediaParsedChanged}
+     * To track when this is over you can listen to {@link Event#ParsedChanged}
      * event (only if this methods returned true).
      *
      * @param flags see {@link Parse}
@@ -458,12 +535,68 @@ public class Media extends VLCObject {
         return mNativeMetas != null ? mNativeMetas[id] : null;
     }
 
+    private static String getMediaCodecModule() {
+        return AndroidUtil.isLolliPopOrLater() ? "mediacodec_ndk" : "mediacodec_jni";
+    }
+
+
+    /**
+     * Add or remove hw acceleration media options
+     *
+     * @param enabled
+     * @param force force hw acceleration even for unknown devices
+     */
+    public void setHWDecoderEnabled(boolean enabled, boolean force) {
+        final HWDecoderUtil.Decoder decoder = enabled ?
+                HWDecoderUtil.getDecoderFromDevice() :
+                HWDecoderUtil.Decoder.NONE;
+
+        if (decoder == HWDecoderUtil.Decoder.NONE ||
+                (decoder == HWDecoderUtil.Decoder.UNKNOWN && !force)) {
+            addOption(":codec=all");
+            return;
+        }
+
+        /*
+         * Set higher caching values if using iomx decoding, since some omx
+         * decoders have a very high latency, and if the preroll data isn't
+         * enough to make the decoder output a frame, the playback timing gets
+         * started too soon, and every decoded frame appears to be too late.
+         * On Nexus One, the decoder latency seems to be 25 input packets
+         * for 320x170 H.264, a few packets less on higher resolutions.
+         * On Nexus S, the decoder latency seems to be about 7 packets.
+         */
+        addOption(":file-caching=1500");
+        addOption(":network-caching=1500");
+
+        final StringBuilder sb = new StringBuilder(":codec=");
+        if (decoder == HWDecoderUtil.Decoder.MEDIACODEC)
+            sb.append(getMediaCodecModule()).append(",");
+        else if (decoder == HWDecoderUtil.Decoder.OMX)
+            sb.append("iomx,");
+        else
+            sb.append(getMediaCodecModule()).append(",iomx,");
+        sb.append("all");
+
+        addOption(sb.toString());
+    }
+
+    /**
+     * Enable HWDecoder options if not already set
+     */
+    protected void setDefaultMediaPlayerOptions() {
+        if (!mCodecOptionSet)
+            setHWDecoderEnabled(true, false);
+    }
+
     /**
      * Add an option to this Media. This Media should be alive (not released).
      *
      * @param option ":option" or ":option=value"
      */
     public synchronized void addOption(String option) {
+        if (!mCodecOptionSet && option.startsWith(":codec="))
+            mCodecOptionSet = true;
         nativeAddOption(option);
     }
 
